@@ -141,8 +141,8 @@ namespace TwoBySixAntennaSwitch
             _serialUI.Stop();
             _serialUI.DisplayLine("Configuring Antenna " + inputItem.Context);
             _serialUI.DisplayLine("=====================\r\n");
-            _serialUI.AddInputItem(new SerialInputItem { Option = "name", Label = ": Configure Antenna Name", Callback = ConfigureAntennaName, Context = inputItem.Context });
-            _serialUI.AddInputItem(new SerialInputItem { Option = "mask", Label = ": Configure Antenna Mask", Callback = ConfigureAntennaMask, Context = inputItem.Context });
+            _serialUI.AddInputItem(new SerialInputItem { Option = "N", Label = ": Configure Antenna Name", Callback = ConfigureAntennaName, Context = inputItem.Context });
+            _serialUI.AddInputItem(new SerialInputItem { Option = "M", Label = ": Configure Antenna Mask", Callback = ConfigureAntennaMask, Context = inputItem.Context });
             _serialUI.AddInputItem(new SerialInputItem { Option = "..", Label = ": Back to the Main Menu", Callback = RefreshMainMenu });
             _serialUI.AddInputItem(new SerialInputItem { Callback = ConfigureAntenna, Context = inputItem.Context });
 
@@ -155,8 +155,8 @@ namespace TwoBySixAntennaSwitch
 
             _serialUI.DisplayLine("Configuring Radio " + inputItem.Context);
             _serialUI.DisplayLine("=====================\r\n");
-            _serialUI.AddInputItem(new SerialInputItem { Option = "name", Label = ": Configure Radio Name", Callback = ConfigureAntenna, Context = inputItem.Context });
-            _serialUI.AddInputItem(new SerialInputItem { Option = "mask", Label = ": Configure Radio Mask", Callback = ConfigureAntenna, Context = inputItem.Context });
+            _serialUI.AddInputItem(new SerialInputItem { Option = "N", Label = ": Configure Radio Name", Callback = ConfigureAntenna, Context = inputItem.Context });
+            _serialUI.AddInputItem(new SerialInputItem { Option = "M", Label = ": Configure Radio Mask", Callback = ConfigureAntenna, Context = inputItem.Context });
             _serialUI.AddInputItem(new SerialInputItem { Option = "..", Label = ": Back to the Main Menu", Callback = RefreshMainMenu });
             _serialUI.AddInputItem(new SerialInputItem { Callback = ConfigureAntenna, Context = inputItem.Context });
 
