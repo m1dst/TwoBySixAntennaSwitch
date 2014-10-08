@@ -27,7 +27,7 @@ namespace TwoBySixAntennaSwitch
 
             for (int i = 0; i < 6; i++)
             {
-                _antennas[i] = new Antenna { Name = "ANTENNA " + (i + 1), BandMask = new BandMask("000000")};
+                _antennas[i] = new Antenna { Name = "ANTENNA " + (i + 1), BandMask = new BandMask("000000") };
             }
 
             DisplaySplash();
@@ -70,24 +70,18 @@ namespace TwoBySixAntennaSwitch
             _serialUI.Stop();
             _serialUI.AddDisplayItem("Main Menu:\r\n");
             _serialUI.AddDisplayItem("==========\r\n\r\n");
-            _serialUI.AddInputItem(new SerialInputItem { Option = "1",  Label = ": Configure Antenna 1 Name", Callback = ConfigureAntennaName, Context = 1 });
-            _serialUI.AddInputItem(new SerialInputItem { Option = "1M", Label = ": Configure Antenna 1 Mask", Callback = ConfigureAntennaMask, Context = 1 });
+
+            _serialUI.AddInputItem(new SerialInputItem { Option = "1", Label = ": Configure Antenna 1", Callback = ConfigureAntenna, Context = 1 });
+            _serialUI.AddInputItem(new SerialInputItem { Option = "2", Label = ": Configure Antenna 2", Callback = ConfigureAntenna, Context = 2 });
+            _serialUI.AddInputItem(new SerialInputItem { Option = "3", Label = ": Configure Antenna 3", Callback = ConfigureAntenna, Context = 3 });
+            _serialUI.AddInputItem(new SerialInputItem { Option = "4", Label = ": Configure Antenna 4", Callback = ConfigureAntenna, Context = 4 });
+            _serialUI.AddInputItem(new SerialInputItem { Option = "5", Label = ": Configure Antenna 5", Callback = ConfigureAntenna, Context = 5 });
+            _serialUI.AddInputItem(new SerialInputItem { Option = "6", Label = ": Configure Antenna 6", Callback = ConfigureAntenna, Context = 6 });
             _serialUI.AddInputItem(new SerialInputItem());
-            _serialUI.AddInputItem(new SerialInputItem { Option = "2", Label = ": Configure Antenna 2 Name", Callback = ConfigureAntennaName, Context = 2 });
-            _serialUI.AddInputItem(new SerialInputItem { Option = "2M", Label = ": Configure Antenna 2 Mask", Callback = ConfigureAntennaMask, Context = 2 });
-            _serialUI.AddInputItem(new SerialInputItem());
-            _serialUI.AddInputItem(new SerialInputItem { Option = "3", Label = ": Configure Antenna 3 Name", Callback = ConfigureAntennaName, Context = 3 });
-            _serialUI.AddInputItem(new SerialInputItem { Option = "3M", Label = ": Configure Antenna 3 Mask", Callback = ConfigureAntennaMask, Context = 3 });
-            _serialUI.AddInputItem(new SerialInputItem());
-            _serialUI.AddInputItem(new SerialInputItem { Option = "4", Label = ": Configure Antenna 4 Name", Callback = ConfigureAntennaName, Context = 4 });
-            _serialUI.AddInputItem(new SerialInputItem { Option = "4M", Label = ": Configure Antenna 4 Mask", Callback = ConfigureAntennaMask, Context = 4 });
-            _serialUI.AddInputItem(new SerialInputItem());
-            _serialUI.AddInputItem(new SerialInputItem { Option = "5", Label = ": Configure Antenna 5 Name", Callback = ConfigureAntennaName, Context = 5 });
-            _serialUI.AddInputItem(new SerialInputItem { Option = "5M", Label = ": Configure Antenna 5 Mask", Callback = ConfigureAntennaMask, Context = 5 });
-            _serialUI.AddInputItem(new SerialInputItem());
-            _serialUI.AddInputItem(new SerialInputItem { Option = "6", Label = ": Configure Antenna 6 Name", Callback = ConfigureAntennaName, Context = 6 });
-            _serialUI.AddInputItem(new SerialInputItem { Option = "6M", Label = ": Configure Antenna 6 Mask", Callback = ConfigureAntennaMask, Context = 6 });
-            _serialUI.AddInputItem(new SerialInputItem());
+
+            _serialUI.AddInputItem(new SerialInputItem { Option = "A", Label = ": Configure Radio A", Callback = ConfigureRadio, Context = 1 });
+            _serialUI.AddInputItem(new SerialInputItem { Option = "B", Label = ": Configure Radio B", Callback = ConfigureRadio, Context = 2 });
+
             _serialUI.AddInputItem(new SerialInputItem());
             _serialUI.AddInputItem(new SerialInputItem { Option = "S", Label = ": Show Status", Callback = ShowStatus });
             _serialUI.AddInputItem(new SerialInputItem { Option = "H", Label = ": Show Help", Callback = DisplayHelp });
@@ -133,13 +127,40 @@ namespace TwoBySixAntennaSwitch
             _serialUI.DisplayLine("ANTENNA NAME   160 80  40  20  15  10 ");
             for (int i = 0; i < _antennas.Length; i++)
             {
-                _serialUI.Display(i+1 + ") " + StringExtension.PadRight(_antennas[i].Name,11) + " ");
+                _serialUI.Display(i + 1 + ") " + StringExtension.PadRight(_antennas[i].Name, 11) + " ");
                 string mask = _antennas[i].BandMask.ToString();
                 mask = mask.Replace("0", "-   ").Replace("1", "1   ").Replace("2", "2   ");
                 _serialUI.Display(mask + "\r\n");
             }
             _serialUI.DisplayLine("\r\n\r\n");
             RefreshMainMenu(null);
+        }
+
+        private static void ConfigureAntenna(SerialInputItem inputItem)
+        {
+            _serialUI.Stop();
+            _serialUI.DisplayLine("Configuring Antenna " + inputItem.Context);
+            _serialUI.DisplayLine("=====================\r\n");
+            _serialUI.AddInputItem(new SerialInputItem { Option = "name", Label = ": Configure Antenna Name", Callback = ConfigureAntennaName, Context = inputItem.Context });
+            _serialUI.AddInputItem(new SerialInputItem { Option = "mask", Label = ": Configure Antenna Mask", Callback = ConfigureAntennaMask, Context = inputItem.Context });
+            _serialUI.AddInputItem(new SerialInputItem { Option = "..", Label = ": Back to the Main Menu", Callback = RefreshMainMenu });
+            _serialUI.AddInputItem(new SerialInputItem { Callback = ConfigureAntenna, Context = inputItem.Context });
+
+            _serialUI.Go();
+        }
+
+        private static void ConfigureRadio(SerialInputItem inputItem)
+        {
+            _serialUI.Stop();
+
+            _serialUI.DisplayLine("Configuring Radio " + inputItem.Context);
+            _serialUI.DisplayLine("=====================\r\n");
+            _serialUI.AddInputItem(new SerialInputItem { Option = "name", Label = ": Configure Radio Name", Callback = ConfigureAntenna, Context = inputItem.Context });
+            _serialUI.AddInputItem(new SerialInputItem { Option = "mask", Label = ": Configure Radio Mask", Callback = ConfigureAntenna, Context = inputItem.Context });
+            _serialUI.AddInputItem(new SerialInputItem { Option = "..", Label = ": Back to the Main Menu", Callback = RefreshMainMenu });
+            _serialUI.AddInputItem(new SerialInputItem { Callback = ConfigureAntenna, Context = inputItem.Context });
+
+            _serialUI.Go();
         }
 
         private static void ConfigureAntennaName(SerialInputItem inputItem)
@@ -183,8 +204,10 @@ namespace TwoBySixAntennaSwitch
                     {
                         _serialUI.DisplayLine("\r\nName NOT changed.   (" + _antennas[antenna - 1].Name + ")\r\n\r\n");
                     }
-                    RefreshMainMenu(null);
-                    break;
+                    
+                    _serialUI.Stop();
+                    ConfigureAntenna(new SerialInputItem() { Context = antenna });
+                    return;
 
             }
 
@@ -235,7 +258,7 @@ namespace TwoBySixAntennaSwitch
                     antenna = inputItem.Context - 10;
                     if (_serialUI.Store["mask"].ToString() != "")
                     {
-                        _antennas[antenna-1].BandMask = new BandMask(_serialUI.Store["mask"].ToString());
+                        _antennas[antenna - 1].BandMask = new BandMask(_serialUI.Store["mask"].ToString());
                         _serialUI.DisplayLine("\r\nMask changed to : " + _antennas[antenna - 1].BandMask.ToString() + "\r\n\r\n");
                     }
                     else
@@ -243,8 +266,9 @@ namespace TwoBySixAntennaSwitch
                         _serialUI.DisplayLine("\r\nMask NOT changed.   (" + _antennas[antenna - 1].BandMask + ")\r\n\r\n");
                     }
 
-                    RefreshMainMenu(null);
-                    break;
+                    _serialUI.Stop();
+                    ConfigureAntenna(new SerialInputItem() { Context = antenna });
+                    return;
             }
 
             _serialUI.Go();
@@ -254,9 +278,9 @@ namespace TwoBySixAntennaSwitch
 
         static void UpdateDisplay()
         {
-            _lcdshield.WriteLine(0, "Radio 1 : TX INHIBIT", TextAlign.Left);
+            _lcdshield.WriteLine(0, "Radio A : TX INHIBIT", TextAlign.Left);
             _lcdshield.WriteLine(1, " 80M - " + _antennas[0].Name, TextAlign.Left);
-            _lcdshield.WriteLine(2, "Radio 2 : RX", TextAlign.Left);
+            _lcdshield.WriteLine(2, "Radio B : RX", TextAlign.Left);
             _lcdshield.WriteLine(3, " 20M - SteppIR 3el 6", TextAlign.Left);
         }
 
@@ -265,8 +289,8 @@ namespace TwoBySixAntennaSwitch
             _lcdshield.Clear();
             _lcdshield.WriteLine(0, "M1DST 2 x 6", TextAlign.Centre);
             _lcdshield.WriteLine(1, "ANTENNA SWITCH", TextAlign.Centre);
-            _lcdshield.WriteLine(2, "Radio 1 : Elecraft", TextAlign.Left);
-            _lcdshield.WriteLine(3, "Radio 2 : Yaesu BCD", TextAlign.Left);
+            _lcdshield.WriteLine(2, "Radio 1 : Elecraft");
+            _lcdshield.WriteLine(3, "Radio 2 : Yaesu BCD");
             Thread.Sleep(2000);
             _lcdshield.Clear();
         }
