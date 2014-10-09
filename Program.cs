@@ -11,6 +11,7 @@ namespace TwoBySixAntennaSwitch
         static DfRobotLcdShield _lcdshield;
         static Antenna[] _antennas;
         static readonly OutputPort Led1 = new OutputPort(Pins.ONBOARD_LED, false);
+        const int MAX_ANTENNA_NAME_LENGTH = 11;
 
         private static bool _showWelcomeMessage = true;
 
@@ -127,7 +128,7 @@ namespace TwoBySixAntennaSwitch
             _serialUI.DisplayLine("ANTENNA NAME   160 80  40  20  15  10 ");
             for (int i = 0; i < _antennas.Length; i++)
             {
-                _serialUI.Display(i + 1 + ") " + StringExtension.PadRight(_antennas[i].Name, 11) + " ");
+                _serialUI.Display(i + 1 + ") " + StringExtension.PadRight(_antennas[i].Name, MAX_ANTENNA_NAME_LENGTH) + " ");
                 string mask = _antennas[i].BandMask.ToString();
                 mask = mask.Replace("0", "-   ").Replace("1", "1   ").Replace("2", "2   ");
                 _serialUI.Display(mask + "\r\n");
@@ -181,7 +182,7 @@ namespace TwoBySixAntennaSwitch
                     _serialUI.Store.Clear();
                     _serialUI.DisplayLine("\r\nWe're now going to configure antenna " + antenna + ".");
                     _serialUI.DisplayLine("\r\nThe current name for the antenna is : " + _antennas[antenna - 1].Name);
-                    _serialUI.DisplayLine("\r\nPlease enter a new name for the antenna. (Maximum 11 characters)");
+                    _serialUI.DisplayLine("\r\nPlease enter a new name for the antenna. (Maximum " + MAX_ANTENNA_NAME_LENGTH + " characters)");
                     _serialUI.DisplayLine("Pressing ENTER leaves the current name configured.");
                     _serialUI.AddInputItem(new SerialInputItem { Label = "", Callback = ConfigureAntennaName, Context = inputItem.Context + 10, StoreKey = "name" });
                     break;
@@ -197,14 +198,14 @@ namespace TwoBySixAntennaSwitch
                     antenna = inputItem.Context - 10;
                     if (_serialUI.Store["name"].ToString() != "")
                     {
-                        _antennas[antenna - 1].Name = _serialUI.Store["name"].ToString().Trim().ToUpper();
+                        _antennas[antenna - 1].Name = _serialUI.Store["name"].ToString().Trim().ToUpper().Substring(0, MAX_ANTENNA_NAME_LENGTH);
                         _serialUI.DisplayLine("\r\nName changed to : " + _antennas[antenna - 1].Name + "\r\n\r\n");
                     }
                     else
                     {
                         _serialUI.DisplayLine("\r\nName NOT changed.   (" + _antennas[antenna - 1].Name + ")\r\n\r\n");
                     }
-                    
+
                     _serialUI.Stop();
                     ConfigureAntenna(new SerialInputItem() { Context = antenna });
                     return;
@@ -278,10 +279,10 @@ namespace TwoBySixAntennaSwitch
 
         static void UpdateDisplay()
         {
-            _lcdshield.WriteLine(0, "Radio A : TX INHIBIT", TextAlign.Left);
-            _lcdshield.WriteLine(1, " 80M - " + _antennas[0].Name, TextAlign.Left);
-            _lcdshield.WriteLine(2, "Radio B : RX", TextAlign.Left);
-            _lcdshield.WriteLine(3, " 20M - SteppIR 3el 6", TextAlign.Left);
+            _lcdshield.WriteLine(0, "Radio A : TX INHIBIT");
+            _lcdshield.WriteLine(1, " 80M - " + _antennas[0].Name.PadRight(MAX_ANTENNA_NAME_LENGTH + 1) + "1");
+            _lcdshield.WriteLine(2, "Radio B : RX");
+            _lcdshield.WriteLine(3, " 80M - " + _antennas[1].Name.PadRight(MAX_ANTENNA_NAME_LENGTH + 1) + "2");
         }
 
         static void DisplaySplash()
@@ -289,8 +290,8 @@ namespace TwoBySixAntennaSwitch
             _lcdshield.Clear();
             _lcdshield.WriteLine(0, "M1DST 2 x 6", TextAlign.Centre);
             _lcdshield.WriteLine(1, "ANTENNA SWITCH", TextAlign.Centre);
-            _lcdshield.WriteLine(2, "Radio 1 : Elecraft");
-            _lcdshield.WriteLine(3, "Radio 2 : Yaesu BCD");
+            _lcdshield.WriteLine(2, "Radio A : Elecraft");
+            _lcdshield.WriteLine(3, "Radio B : Yaesu BCD");
             Thread.Sleep(2000);
             _lcdshield.Clear();
         }
