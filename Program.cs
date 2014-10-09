@@ -9,7 +9,7 @@ namespace TwoBySixAntennaSwitch
     public class Program
     {
 
-        const int MAX_ANTENNA_NAME_LENGTH = 12;
+        const int MAX_ANTENNA_NAME_LENGTH = 11;
 
         static DfRobotLcdShield _lcdshield;
         static Antenna[] _antennas;
@@ -309,9 +309,9 @@ namespace TwoBySixAntennaSwitch
         static void UpdateDisplay()
         {
             _lcdshield.WriteLine(0, "Radio A : " + Utilities.RadioStateToString(_radios[0].RadioState));
-            _lcdshield.WriteLine(1, Utilities.RadioBandToString(_radios[0].CurrentBand).PadLeft(3) + " - " + _antennas[0].Name.PadRight(MAX_ANTENNA_NAME_LENGTH + 1) + "1");
+            _lcdshield.WriteLine(1, Utilities.RadioBandToString(_radios[0].CurrentBand).PadLeft(4) + " - " + _antennas[0].Name.PadRight(MAX_ANTENNA_NAME_LENGTH + 1) + "1");
             _lcdshield.WriteLine(2, "Radio B : " + Utilities.RadioStateToString(_radios[1].RadioState));
-            _lcdshield.WriteLine(3, Utilities.RadioBandToString(_radios[1].CurrentBand).PadLeft(3) + " - " + _antennas[1].Name.PadRight(MAX_ANTENNA_NAME_LENGTH + 1) + "2");
+            _lcdshield.WriteLine(3, Utilities.RadioBandToString(_radios[1].CurrentBand).PadLeft(4) + " - " + _antennas[1].Name.PadRight(MAX_ANTENNA_NAME_LENGTH + 1) + "2");
         }
 
         static void DisplaySplash()
