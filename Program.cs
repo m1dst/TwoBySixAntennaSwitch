@@ -64,11 +64,18 @@ namespace TwoBySixAntennaSwitch
                     MainMenu(null);
                 }
 
+                InhibitRadiosIfRequired();
                 UpdateDisplay();
                 Thread.Sleep(200);
             }
             while (true);
 
+        }
+
+        private static void InhibitRadiosIfRequired()
+        {
+            _radios[0].RadioState = GetCountOfSuitableAntennas(_radios[0].CurrentBand) == 0 ? RadioState.Inhibit : RadioState.Rx;
+            _radios[1].RadioState = GetCountOfSuitableAntennas(_radios[1].CurrentBand) == 0 ? RadioState.Inhibit : RadioState.Rx;
         }
 
 
