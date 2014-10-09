@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 using Microsoft.SPOT.Hardware;
 using SecretLabs.NETMF.Hardware.Netduino;
 using TwoBySixAntennaSwitch.Lcd;
@@ -8,10 +9,14 @@ namespace TwoBySixAntennaSwitch
     public class Program
     {
 
+        const int MAX_ANTENNA_NAME_LENGTH = 11;
+
         static DfRobotLcdShield _lcdshield;
         static Antenna[] _antennas;
+        static Radio[] _radios;
+
         static readonly OutputPort Led1 = new OutputPort(Pins.ONBOARD_LED, false);
-        const int MAX_ANTENNA_NAME_LENGTH = 11;
+
 
         private static bool _showWelcomeMessage = true;
 
@@ -25,6 +30,15 @@ namespace TwoBySixAntennaSwitch
         {
             _lcdshield = new DfRobotLcdShield(20, 4);
             _antennas = new Antenna[6];
+
+            _radios = new Radio[2]
+            {
+                new Radio(),
+                new Radio()
+            };
+
+            _radios[1].CurrentBand = RadioBand.B10;
+            _radios[1].RadioState = RadioState.Tx;
 
             for (int i = 0; i < 6; i++)
             {
@@ -134,6 +148,21 @@ namespace TwoBySixAntennaSwitch
                 _serialUI.Display(mask + "\r\n");
             }
             _serialUI.DisplayLine("\r\n\r\n");
+
+            // 160   1   0  0   0  1
+            // 80    0   1  0   0  2
+            // 40    1   1  0   0  3
+            // 20    1   0  1   0  5
+            // 15    1   1  1   0  7
+            // 10    1   0  0   1  9
+
+            _serialUI.DisplayLine(ConvertYaesuBcdToBand("1000").ToString());
+            _serialUI.DisplayLine(ConvertYaesuBcdToBand("0100").ToString());
+            _serialUI.DisplayLine(ConvertYaesuBcdToBand("1100").ToString());
+            _serialUI.DisplayLine(ConvertYaesuBcdToBand("1010").ToString());
+            _serialUI.DisplayLine(ConvertYaesuBcdToBand("1110").ToString());
+            _serialUI.DisplayLine(ConvertYaesuBcdToBand("1001").ToString());
+
             RefreshMainMenu(null);
         }
 
@@ -279,10 +308,10 @@ namespace TwoBySixAntennaSwitch
 
         static void UpdateDisplay()
         {
-            _lcdshield.WriteLine(0, "Radio A : TX INHIBIT");
-            _lcdshield.WriteLine(1, " 80M - " + _antennas[0].Name.PadRight(MAX_ANTENNA_NAME_LENGTH + 1) + "1");
-            _lcdshield.WriteLine(2, "Radio B : RX");
-            _lcdshield.WriteLine(3, " 80M - " + _antennas[1].Name.PadRight(MAX_ANTENNA_NAME_LENGTH + 1) + "2");
+            _lcdshield.WriteLine(0, "Radio A : " + Utilities.RadioStateToString(_radios[0].RadioState));
+            _lcdshield.WriteLine(1, Utilities.RadioBandToString(_radios[0].CurrentBand).PadLeft(3) + " - " + _antennas[0].Name.PadRight(MAX_ANTENNA_NAME_LENGTH + 1) + "1");
+            _lcdshield.WriteLine(2, "Radio B : " + Utilities.RadioStateToString(_radios[1].RadioState));
+            _lcdshield.WriteLine(3, Utilities.RadioBandToString(_radios[1].CurrentBand).PadLeft(3) + " - " + _antennas[1].Name.PadRight(MAX_ANTENNA_NAME_LENGTH + 1) + "2");
         }
 
         static void DisplaySplash()
@@ -294,6 +323,16 @@ namespace TwoBySixAntennaSwitch
             _lcdshield.WriteLine(3, "Radio B : Yaesu BCD");
             Thread.Sleep(2000);
             _lcdshield.Clear();
+        }
+
+        static int ConvertYaesuBcdToBand(string input)
+        {
+            int output = 0;
+            if (input[0] == '1') output += 1;
+            if (input[1] == '1') output += 2;
+            if (input[2] == '1') output += 4;
+            if (input[3] == '1') output += 8;
+            return output;
         }
 
 

@@ -35,6 +35,8 @@
   <Import Project="$(NetMfTargetsBaseDir)$(TargetFrameworkVersion)\CSharp.Targets" />
   <ItemGroup>
     <Compile Include="BandDecodingMethod.cs" />
+    <Compile Include="Radio.cs" />
+    <Compile Include="RadioBand.cs" />
     <Compile Include="RadioState.cs" />
     <Compile Include="Antenna.cs" />
     <Compile Include="BandMask.cs" />
