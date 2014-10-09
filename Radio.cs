@@ -19,5 +19,7 @@ namespace TwoBySixAntennaSwitch
 
         public RadioState RadioState { get; set; }
 
+        public int CurrentAntenna { get; set; }
+
     }
 }

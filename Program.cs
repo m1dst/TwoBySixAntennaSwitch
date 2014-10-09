@@ -39,6 +39,8 @@ namespace TwoBySixAntennaSwitch
 
             _radios[1].CurrentBand = RadioBand.B10;
             _radios[1].RadioState = RadioState.Tx;
+            _radios[0].CurrentAntenna = 3;
+            _radios[1].CurrentAntenna = 4;
 
             for (int i = 0; i < 6; i++)
             {
@@ -227,7 +229,12 @@ namespace TwoBySixAntennaSwitch
                     antenna = inputItem.Context - 10;
                     if (_serialUI.Store["name"].ToString() != "")
                     {
-                        _antennas[antenna - 1].Name = _serialUI.Store["name"].ToString().Trim().ToUpper().Substring(0, MAX_ANTENNA_NAME_LENGTH);
+                        var name = _serialUI.Store["name"].ToString().Trim().ToUpper();
+                        if (name.Length > MAX_ANTENNA_NAME_LENGTH)
+                        {
+                            name = name.Substring(0, MAX_ANTENNA_NAME_LENGTH);
+                        }
+                        _antennas[antenna - 1].Name = name;
                         _serialUI.DisplayLine("\r\nName changed to : " + _antennas[antenna - 1].Name + "\r\n\r\n");
                     }
                     else
@@ -308,10 +315,11 @@ namespace TwoBySixAntennaSwitch
 
         static void UpdateDisplay()
         {
+
             _lcdshield.WriteLine(0, "Radio A : " + Utilities.RadioStateToString(_radios[0].RadioState));
-            _lcdshield.WriteLine(1, Utilities.RadioBandToString(_radios[0].CurrentBand).PadLeft(4) + " - " + _antennas[0].Name.PadRight(MAX_ANTENNA_NAME_LENGTH + 1) + "1");
+            _lcdshield.WriteLine(1, Utilities.RadioBandToString(_radios[0].CurrentBand).PadLeft(4) + " " + GetCountOfSuitableAntennas(_radios[0].CurrentBand) + " " + _antennas[_radios[0].CurrentAntenna].Name.PadRight(MAX_ANTENNA_NAME_LENGTH + 1) + (_radios[0].CurrentAntenna + 1));
             _lcdshield.WriteLine(2, "Radio B : " + Utilities.RadioStateToString(_radios[1].RadioState));
-            _lcdshield.WriteLine(3, Utilities.RadioBandToString(_radios[1].CurrentBand).PadLeft(4) + " - " + _antennas[1].Name.PadRight(MAX_ANTENNA_NAME_LENGTH + 1) + "2");
+            _lcdshield.WriteLine(3, Utilities.RadioBandToString(_radios[1].CurrentBand).PadLeft(4) + " " + GetCountOfSuitableAntennas(_radios[1].CurrentBand) + " " + _antennas[_radios[1].CurrentAntenna].Name.PadRight(MAX_ANTENNA_NAME_LENGTH + 1) + (_radios[1].CurrentAntenna + 1));
         }
 
         static void DisplaySplash()
@@ -333,6 +341,65 @@ namespace TwoBySixAntennaSwitch
             if (input[2] == '1') output += 4;
             if (input[3] == '1') output += 8;
             return output;
+        }
+
+        static int GetCountOfSuitableAntennas(RadioBand band)
+        {
+            //TODO: Should probably take into account which antennas are in use?
+
+            int result = 0;
+            switch (band)
+            {
+                case RadioBand.B10:
+
+                    foreach (var antenna in _antennas)
+                    {
+                        if (antenna.BandMask.Is10M) { result++; }
+                    }
+                    return result;
+
+                case RadioBand.B15:
+
+                    foreach (var antenna in _antennas)
+                    {
+                        if (antenna.BandMask.Is15M) { result++; }
+                    }
+                    return result;
+
+                case RadioBand.B20:
+
+                    foreach (var antenna in _antennas)
+                    {
+                        if (antenna.BandMask.Is20M) { result++; }
+                    }
+                    return result;
+
+                case RadioBand.B40:
+
+                    foreach (var antenna in _antennas)
+                    {
+                        if (antenna.BandMask.Is40M) { result++; }
+                    }
+                    return result;
+
+                case RadioBand.B80:
+
+                    foreach (var antenna in _antennas)
+                    {
+                        if (antenna.BandMask.Is80M) { result++; }
+                    }
+                    return result;
+
+                case RadioBand.B160:
+
+                    foreach (var antenna in _antennas)
+                    {
+                        if (antenna.BandMask.Is160M) { result++; }
+                    }
+                    return result;
+            }
+
+            return result;
         }
 
 
