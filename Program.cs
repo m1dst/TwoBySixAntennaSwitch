@@ -117,9 +117,19 @@ namespace TwoBySixAntennaSwitch
             _showWelcomeMessage = false;
         }
 
-        public static void DisplayMatrixHelp()
+        public static void DisplayHelp()
         {
-            _serialUI.DisplayLine("\r\n\r\nAntanna Matrix Help");
+            _serialUI.DisplayLine("\r\n\r\n");
+
+            _serialUI.DisplayLine("Heeeeeeeeeeeeeeelp!");
+            _serialUI.DisplayLine("===================\r\n");
+
+            _serialUI.DisplayLine("There are two configuration items per antenna. The first being");
+            _serialUI.DisplayLine("the name.  This should be meaningful and ideally no longer than");
+            _serialUI.DisplayLine("11 characters.  If you enter a name which is longer it will be");
+            _serialUI.DisplayLine("truncated automatically.\r\n");
+            
+            _serialUI.DisplayLine("Antenna Matrix Help");
             _serialUI.DisplayLine("===================\r\n");
             _serialUI.DisplayLine("An antenna matrix is a string of numbers with a length of 6.");
             _serialUI.DisplayLine("It is made up of numbers between 0 and 2 for each.");
@@ -138,6 +148,14 @@ namespace TwoBySixAntennaSwitch
             _serialUI.DisplayLine(" * 80M-10M vertical might be :     011111");
             _serialUI.DisplayLine(" * No antenna connected would be : 000000");
             _serialUI.DisplayLine("\r\nThe example above gave a higher priority to the 10M 5ele than the triband.\r\n");
+
+            _serialUI.DisplayLine("Radios");
+            _serialUI.DisplayLine("======\r\n");
+            _serialUI.DisplayLine("You will need to configure the method that this unit will use to decode");
+            _serialUI.DisplayLine("which band each antenna is on.\r\n");
+            _serialUI.DisplayLine("If you have bandpass filters you can trigger them from this unit too.");
+            _serialUI.DisplayLine("You will just need to configure the output type your BPF requires.\r\n\r\n");
+
         }
 
         public static void RefreshMainMenu(SerialInputItem item)
@@ -369,7 +387,7 @@ namespace TwoBySixAntennaSwitch
         private static void DisplayHelp(SerialInputItem inputItem)
         {
             _serialUI.Stop();
-            DisplayMatrixHelp();
+            DisplayHelp();
             RefreshMainMenu(null);
             _serialUI.Go();
         }
