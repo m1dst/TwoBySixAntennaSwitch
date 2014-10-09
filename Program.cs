@@ -9,7 +9,7 @@ namespace TwoBySixAntennaSwitch
     public class Program
     {
 
-        const int MAX_ANTENNA_NAME_LENGTH = 11;
+        const int MAX_ANTENNA_NAME_LENGTH = 12;
 
         static DfRobotLcdShield _lcdshield;
         static Antenna[] _antennas;
