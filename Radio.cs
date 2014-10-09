@@ -11,6 +11,7 @@ namespace TwoBySixAntennaSwitch
             CurrentBand = RadioBand.B20;
             BandDecodingMethod = BandDecodingMethod.YaesuBcd;
             RadioState = RadioState.Rx;
+            BandPassFilterType = BandPassFilterType.None;
         }
 
         public RadioBand CurrentBand { get; set; }
@@ -20,6 +21,8 @@ namespace TwoBySixAntennaSwitch
         public RadioState RadioState { get; set; }
 
         public int CurrentAntenna { get; set; }
+
+        public BandPassFilterType BandPassFilterType { get; set; }
 
     }
 }

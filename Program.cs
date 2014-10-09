@@ -39,8 +39,8 @@ namespace TwoBySixAntennaSwitch
 
             _radios[1].CurrentBand = RadioBand.B10;
             _radios[1].RadioState = RadioState.Tx;
-            _radios[0].CurrentAntenna = 3;
-            _radios[1].CurrentAntenna = 4;
+            _radios[0].CurrentAntenna = 0;
+            _radios[1].CurrentAntenna = 1;
 
             for (int i = 0; i < 6; i++)
             {
@@ -109,6 +109,8 @@ namespace TwoBySixAntennaSwitch
             _serialUI.AddInputItem(new SerialInputItem());
             _serialUI.AddInputItem(new SerialInputItem { Option = "S", Label = ": Show Status", Callback = ShowStatus });
             _serialUI.AddInputItem(new SerialInputItem { Option = "H", Label = ": Show Help", Callback = DisplayHelp });
+            _serialUI.AddInputItem(new SerialInputItem { Option = "R", Label = ": Factory Reset", Callback = FactoryReset });
+            
             _serialUI.AddInputItem(new SerialInputItem { Callback = RefreshMainMenu });
 
             _serialUI.Go();
@@ -145,10 +147,11 @@ namespace TwoBySixAntennaSwitch
 
         private static void ShowStatus(SerialInputItem inputItem)
         {
-            _serialUI.DisplayLine("\r\n\r\nStatus");
-            _serialUI.DisplayLine("======\r\n\r\n");
+            _serialUI.DisplayLine("\r\n\r\nAntenna and Radio Status");
+            _serialUI.DisplayLine("========================\r\n");
 
             _serialUI.DisplayLine("ANTENNA NAME   160 80  40  20  15  10 ");
+            _serialUI.DisplayLine("======================================");
             for (int i = 0; i < _antennas.Length; i++)
             {
                 _serialUI.Display(i + 1 + ") " + StringExtension.PadRight(_antennas[i].Name, MAX_ANTENNA_NAME_LENGTH) + " ");
@@ -156,23 +159,44 @@ namespace TwoBySixAntennaSwitch
                 mask = mask.Replace("0", "-   ").Replace("1", "1   ").Replace("2", "2   ");
                 _serialUI.Display(mask + "\r\n");
             }
-            _serialUI.DisplayLine("\r\n\r\n");
+            _serialUI.DisplayLine("======================================");
 
-            // 160   1   0  0   0  1
-            // 80    0   1  0   0  2
-            // 40    1   1  0   0  3
-            // 20    1   0  1   0  5
-            // 15    1   1  1   0  7
-            // 10    1   0  0   1  9
+            _serialUI.DisplayLine("\r\n");
 
-            _serialUI.DisplayLine(ConvertYaesuBcdToBand("1000").ToString());
-            _serialUI.DisplayLine(ConvertYaesuBcdToBand("0100").ToString());
-            _serialUI.DisplayLine(ConvertYaesuBcdToBand("1100").ToString());
-            _serialUI.DisplayLine(ConvertYaesuBcdToBand("1010").ToString());
-            _serialUI.DisplayLine(ConvertYaesuBcdToBand("1110").ToString());
-            _serialUI.DisplayLine(ConvertYaesuBcdToBand("1001").ToString());
+            _serialUI.DisplayLine("Radio A: " + Utilities.BandDecodingMethodToString(_radios[0].BandDecodingMethod));
+            _serialUI.DisplayLine("  BPF A: " + Utilities.BandPassFilterTypeToString(_radios[0].BandPassFilterType) + "\r\n");
+            _serialUI.DisplayLine("Radio B: " + Utilities.BandDecodingMethodToString(_radios[1].BandDecodingMethod));
+            _serialUI.DisplayLine("  BPF B: " + Utilities.BandPassFilterTypeToString(_radios[1].BandPassFilterType) + "\r\n");
+
+            _serialUI.DisplayLine("\r\n");
 
             RefreshMainMenu(null);
+        }
+
+        private static void FactoryReset(SerialInputItem inputItem)
+        {
+            _serialUI.Stop();
+            _serialUI.DisplayLine("Resetting...");
+
+            _antennas = new Antenna[6];
+            for (int i = 0; i < 6; i++)
+            {
+                _antennas[i] = new Antenna { Name = "ANTENNA " + (i + 1), BandMask = new BandMask("000000") };
+            }
+
+            _radios = new[]
+            {
+                new Radio(),
+                new Radio()
+            };
+
+
+            _serialUI.DisplayLine("Done...");
+            _serialUI.DisplayLine("\r\n");
+
+            RefreshMainMenu(null);
+
+            _serialUI.Go();
         }
 
         private static void ConfigureAntenna(SerialInputItem inputItem)
@@ -194,10 +218,10 @@ namespace TwoBySixAntennaSwitch
 
             _serialUI.DisplayLine("Configuring Radio " + inputItem.Context);
             _serialUI.DisplayLine("=====================\r\n");
-            _serialUI.AddInputItem(new SerialInputItem { Option = "N", Label = ": Configure Radio Name", Callback = ConfigureAntenna, Context = inputItem.Context });
-            _serialUI.AddInputItem(new SerialInputItem { Option = "M", Label = ": Configure Radio Mask", Callback = ConfigureAntenna, Context = inputItem.Context });
+            _serialUI.AddInputItem(new SerialInputItem { Option = "D", Label = ": Configure Band Decoder", Callback = ConfigureBandDecoder, Context = inputItem.Context });
+            _serialUI.AddInputItem(new SerialInputItem { Option = "B", Label = ": Configure Band Pass Filter Output", Callback = ConfigureBandPassFilter, Context = inputItem.Context });
             _serialUI.AddInputItem(new SerialInputItem { Option = "..", Label = ": Back to the Main Menu", Callback = RefreshMainMenu });
-            _serialUI.AddInputItem(new SerialInputItem { Callback = ConfigureAntenna, Context = inputItem.Context });
+            _serialUI.AddInputItem(new SerialInputItem { Callback = ConfigureRadio, Context = inputItem.Context });
 
             _serialUI.Go();
         }
@@ -250,7 +274,90 @@ namespace TwoBySixAntennaSwitch
                     }
 
                     _serialUI.Stop();
-                    ConfigureAntenna(new SerialInputItem() { Context = antenna });
+                    ConfigureAntenna(new SerialInputItem { Context = antenna });
+                    return;
+
+            }
+
+            _serialUI.Go();
+
+        }
+
+        private static void ConfigureBandDecoder(SerialInputItem inputItem)
+        {
+            _serialUI.Stop();
+            int radio = 0;
+
+            switch (inputItem.Context)
+            {
+                // Prompt user to see if we're gonna change the decoder type.
+                case 1:
+                case 2:
+                    radio = inputItem.Context;
+                    _serialUI.Store.Clear();
+                    _serialUI.DisplayLine("\r\nWe're now going to configure the band decoder for radio " + radio + ".");
+                    _serialUI.DisplayLine("\r\nThe current configuration is : " + Utilities.BandDecodingMethodToString(_radios[radio - 1].BandDecodingMethod) + "\r\n");
+                    _serialUI.DisplayLine("Please select a new option : \r\n");
+
+                    _serialUI.AddInputItem(new SerialInputItem { Option = "0", Label = ": " + Utilities.BandDecodingMethodToString(BandDecodingMethod.YaesuBcd), Callback = ConfigureBandDecoder, Context = inputItem.Context + 10, StoreKey = "band_decoder" });
+                    _serialUI.AddInputItem(new SerialInputItem { Option = "1", Label = ": " + Utilities.BandDecodingMethodToString(BandDecodingMethod.IcomVoltage), Callback = ConfigureBandDecoder, Context = inputItem.Context + 10, StoreKey = "band_decoder" });
+                    _serialUI.AddInputItem(new SerialInputItem { Option = "2", Label = ": " + Utilities.BandDecodingMethodToString(BandDecodingMethod.Civ), Callback = ConfigureBandDecoder, Context = inputItem.Context + 10, StoreKey = "band_decoder" });
+                    _serialUI.AddInputItem(new SerialInputItem { Option = "3", Label = ": " + Utilities.BandDecodingMethodToString(BandDecodingMethod.Kenwood), Callback = ConfigureBandDecoder, Context = inputItem.Context + 10, StoreKey = "band_decoder" });
+                    _serialUI.AddInputItem(new SerialInputItem { Option = "..", Label = ": Back to the Main Menu", Callback = RefreshMainMenu });
+                    _serialUI.AddInputItem(new SerialInputItem { Callback = ConfigureBandDecoder, Context = inputItem.Context });
+                    break;
+
+                // Check the response.
+                case 11:
+                case 12:
+
+                    radio = inputItem.Context - 10;
+                    _radios[radio - 1].BandDecodingMethod = (BandDecodingMethod)Convert.ToInt16(_serialUI.Store["band_decoder"].ToString());
+                    _serialUI.DisplayLine("\r\nBand Decoder Type changed to : " + Utilities.BandDecodingMethodToString(_radios[radio - 1].BandDecodingMethod) + "\r\n\r\n");
+
+                    _serialUI.Stop();
+                    ConfigureRadio(new SerialInputItem { Context = radio });
+                    return;
+
+            }
+
+            _serialUI.Go();
+
+        }
+
+        private static void ConfigureBandPassFilter(SerialInputItem inputItem)
+        {
+            _serialUI.Stop();
+            int radio = 0;
+
+            switch (inputItem.Context)
+            {
+                // Prompt user to see if we're gonna change the bandpass filter output type.
+                case 1:
+                case 2:
+                    radio = inputItem.Context;
+                    _serialUI.Store.Clear();
+                    _serialUI.DisplayLine("\r\nWe're now going to configure the BPF for radio " + radio + ".");
+                    _serialUI.DisplayLine("\r\nThe current configuration is : " + Utilities.BandPassFilterTypeToString(_radios[radio - 1].BandPassFilterType) + "\r\n");
+                    _serialUI.DisplayLine("Please select a new option : \r\n");
+
+                    _serialUI.AddInputItem(new SerialInputItem { Option = "0", Label = ": " + Utilities.BandPassFilterTypeToString(BandPassFilterType.None), Callback = ConfigureBandPassFilter, Context = inputItem.Context + 10, StoreKey = "bpf" });
+                    _serialUI.AddInputItem(new SerialInputItem { Option = "1", Label = ": " + Utilities.BandPassFilterTypeToString(BandPassFilterType.YaesuBCD), Callback = ConfigureBandPassFilter, Context = inputItem.Context + 10, StoreKey = "bpf" });
+                    _serialUI.AddInputItem(new SerialInputItem { Option = "2", Label = ": " + Utilities.BandPassFilterTypeToString(BandPassFilterType.SeparateBands), Callback = ConfigureBandPassFilter, Context = inputItem.Context + 10, StoreKey = "bpf" });
+                    _serialUI.AddInputItem(new SerialInputItem { Option = "..", Label = ": Back to the Main Menu", Callback = RefreshMainMenu });
+                    _serialUI.AddInputItem(new SerialInputItem { Callback = ConfigureBandPassFilter, Context = inputItem.Context });
+                    break;
+
+                // Check the response.
+                case 11:
+                case 12:
+
+                    radio = inputItem.Context - 10;
+                    _radios[radio - 1].BandPassFilterType = (BandPassFilterType)Convert.ToInt16(_serialUI.Store["bpf"].ToString());
+                    _serialUI.DisplayLine("\r\nBPF output changed to : " + Utilities.BandPassFilterTypeToString(_radios[radio - 1].BandPassFilterType) + "\r\n\r\n");
+
+                    _serialUI.Stop();
+                    ConfigureRadio(new SerialInputItem { Context = radio });
                     return;
 
             }
@@ -311,7 +418,7 @@ namespace TwoBySixAntennaSwitch
                     }
 
                     _serialUI.Stop();
-                    ConfigureAntenna(new SerialInputItem() { Context = antenna });
+                    ConfigureAntenna(new SerialInputItem { Context = antenna });
                     return;
             }
 
