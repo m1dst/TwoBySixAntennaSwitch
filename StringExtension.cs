@@ -1,5 +1,4 @@
 using System;
-using System.Text;
 
 namespace TwoBySixAntennaSwitch
 {
@@ -62,11 +61,11 @@ namespace TwoBySixAntennaSwitch
         /// <returns>Final string after all instances have been replaced.</returns>
         public static string Replace(this string content, string find, string replace)
         {
-            int startFrom = 0;
+            const int startFrom = 0;
             int findItemLength = find.Length;
 
             int firstFound = content.IndexOf(find, startFrom);
-            StringBuilder returning = new StringBuilder();
+            var returning = new StringBuilder();
 
             string workingString = content;
 

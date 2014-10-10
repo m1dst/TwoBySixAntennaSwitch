@@ -36,6 +36,8 @@
   <ItemGroup>
     <Compile Include="BandDecodingMethod.cs" />
     <Compile Include="BandPassFilter.cs" />
+    <Compile Include="FormatException.cs" />
+    <Compile Include="Parse.cs" />
     <Compile Include="Radio.cs" />
     <Compile Include="RadioBand.cs" />
     <Compile Include="RadioState.cs" />
@@ -53,7 +55,9 @@
     <Compile Include="Program.cs" />
     <Compile Include="Lcd\TextAlign.cs" />
     <Compile Include="SerialUserInterface.cs" />
+    <Compile Include="StringBuilder.cs" />
     <Compile Include="StringExtension.cs" />
+    <Compile Include="StringUtility.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Microsoft.SPOT.Hardware" />
