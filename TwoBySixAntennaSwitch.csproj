@@ -36,7 +36,9 @@
   <ItemGroup>
     <Compile Include="BandDecodingMethod.cs" />
     <Compile Include="BandPassFilter.cs" />
+    <Compile Include="Eeprom\Eeprom.cs" />
     <Compile Include="FormatException.cs" />
+    <Compile Include="I2CBus.cs" />
     <Compile Include="Parse.cs" />
     <Compile Include="Radio.cs" />
     <Compile Include="RadioBand.cs" />

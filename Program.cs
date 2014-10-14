@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Text;
 using System.Threading;
+using Microsoft.SPOT;
 using Microsoft.SPOT.Hardware;
 using SecretLabs.NETMF.Hardware.Netduino;
 using TwoBySixAntennaSwitch.Lcd;
@@ -9,18 +11,23 @@ namespace TwoBySixAntennaSwitch
     public class Program
     {
 
-        const int MAX_ANTENNA_NAME_LENGTH = 11;
+        private const int MAX_ANTENNA_NAME_LENGTH = 11;
+        private const int MAX_ANTENNA_MASK_LENGTH = 6;
 
-        static DfRobotLcdShield _lcdshield;
-        static Antenna[] _antennas;
-        static Radio[] _radios;
+        private static DfRobotLcdShield _lcdshield;
+        private static Antenna[] _antennas;
+        private static Radio[] _radios;
 
-        static readonly OutputPort Led1 = new OutputPort(Pins.ONBOARD_LED, false);
+        private static readonly OutputPort Led1 = new OutputPort(Pins.ONBOARD_LED, false);
+
+        static readonly I2CBus _commonI2CBus = new I2CBus();
+        // Assume A0 thru A2 specify address of zero, and we want 100kHz.
+        static readonly Eeprom.Eeprom _eeprom = new Eeprom.Eeprom(Eeprom.Eeprom.IC._24LC256, _commonI2CBus, 0, 100) { BigEndian = true };
 
 
         private static bool _showWelcomeMessage = true;
 
-        static SerialUserInterface _serialUI = new SerialUserInterface();
+        private static SerialUserInterface _serialUI = new SerialUserInterface();
 
         private const string Divider = "-------------------------------------------------------------\r\n";
 
@@ -42,11 +49,8 @@ namespace TwoBySixAntennaSwitch
             _radios[0].CurrentAntenna = 0;
             _radios[1].CurrentAntenna = 1;
 
-            for (int i = 0; i < 6; i++)
-            {
-                _antennas[i] = new Antenna { Name = "ANTENNA " + (i + 1), BandMask = new BandMask("000000") };
-            }
-
+            CheckIfWeNeedToFactoryResetTheEeprom();
+            ReadConfigurationFromEeprom();
             DisplaySplash();
 
             do
@@ -70,6 +74,38 @@ namespace TwoBySixAntennaSwitch
             }
             while (true);
 
+        }
+
+        private static void ReadConfigurationFromEeprom()
+        {
+            // Loop through the six antennas and load the name and mask into memory.
+            for (var i = 0; i < 6; i++)
+            {
+                var address = (i + 1) * 100; // Starting address.
+                _antennas[i] = new Antenna
+                {
+                    Name = _eeprom.ReadString((ushort)address, MAX_ANTENNA_NAME_LENGTH),
+                    BandMask = new BandMask(_eeprom.ReadString((ushort)(address + MAX_ANTENNA_NAME_LENGTH + 1), MAX_ANTENNA_MASK_LENGTH))
+                };
+            }
+
+            //TODO: All the other config needs reading.
+        }
+
+        /// <summary>
+        /// Checks whether the eeprom is programmed correctly and clears it if now.
+        /// </summary>
+        private static void CheckIfWeNeedToFactoryResetTheEeprom()
+        {
+            // We need to check if the eeprom has been programmed before.
+            // When it is programmed we write 255 to address zero of the eeprom.
+            // If we read byte zero and don't get 255 then we should factory reset.
+            
+            var b = _eeprom.ReadByte(0);
+            if (b != 255)
+            {
+                FactoryReset();
+            }
         }
 
         private static void InhibitRadiosIfRequired()
@@ -110,7 +146,7 @@ namespace TwoBySixAntennaSwitch
             _serialUI.AddInputItem(new SerialInputItem { Option = "S", Label = ": Show Status", Callback = ShowStatus });
             _serialUI.AddInputItem(new SerialInputItem { Option = "H", Label = ": Show Help", Callback = DisplayHelp });
             _serialUI.AddInputItem(new SerialInputItem { Option = "R", Label = ": Factory Reset", Callback = FactoryReset });
-            
+
             _serialUI.AddInputItem(new SerialInputItem { Callback = RefreshMainMenu });
 
             _serialUI.Go();
@@ -128,7 +164,7 @@ namespace TwoBySixAntennaSwitch
             _serialUI.DisplayLine("the name.  This should be meaningful and ideally no longer than");
             _serialUI.DisplayLine("11 characters.  If you enter a name which is longer it will be");
             _serialUI.DisplayLine("truncated automatically.\r\n");
-            
+
             _serialUI.DisplayLine("Antenna Matrix Help");
             _serialUI.DisplayLine("===================\r\n");
             _serialUI.DisplayLine("An antenna matrix is a string of numbers with a length of 6.");
@@ -191,15 +227,17 @@ namespace TwoBySixAntennaSwitch
             RefreshMainMenu(null);
         }
 
-        private static void FactoryReset(SerialInputItem inputItem)
+        private static void FactoryReset()
         {
-            _serialUI.Stop();
-            _serialUI.DisplayLine("Resetting...");
 
             _antennas = new Antenna[6];
             for (int i = 0; i < 6; i++)
             {
                 _antennas[i] = new Antenna { Name = "ANTENNA " + (i + 1), BandMask = new BandMask("000000") };
+
+                var address = (i + 1) * 100;
+                _eeprom.WriteString((ushort)(address), _antennas[i].Name);
+                _eeprom.WriteString((ushort)(address + MAX_ANTENNA_NAME_LENGTH + 1), _antennas[i].BandMask.ToString());
             }
 
             _radios = new[]
@@ -208,6 +246,16 @@ namespace TwoBySixAntennaSwitch
                 new Radio()
             };
 
+            _eeprom.WriteByte(0, 255);
+
+        }
+
+        private static void FactoryReset(SerialInputItem inputItem)
+        {
+            _serialUI.Stop();
+            _serialUI.DisplayLine("Resetting...");
+
+            FactoryReset();
 
             _serialUI.DisplayLine("Done...");
             _serialUI.DisplayLine("\r\n");
@@ -284,6 +332,7 @@ namespace TwoBySixAntennaSwitch
                             name = name.Substring(0, MAX_ANTENNA_NAME_LENGTH);
                         }
                         _antennas[antenna - 1].Name = name;
+                        _eeprom.WriteString((ushort)(antenna * 100), name);
                         _serialUI.DisplayLine("\r\nName changed to : " + _antennas[antenna - 1].Name + "\r\n\r\n");
                     }
                     else
@@ -428,6 +477,7 @@ namespace TwoBySixAntennaSwitch
                     if (_serialUI.Store["mask"].ToString() != "")
                     {
                         _antennas[antenna - 1].BandMask = new BandMask(_serialUI.Store["mask"].ToString());
+                        _eeprom.WriteString((ushort)((antenna * 100) + MAX_ANTENNA_NAME_LENGTH + 1), _antennas[antenna - 1].BandMask.ToString());
                         _serialUI.DisplayLine("\r\nMask changed to : " + _antennas[antenna - 1].BandMask.ToString() + "\r\n\r\n");
                     }
                     else
