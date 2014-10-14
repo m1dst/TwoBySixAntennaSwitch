@@ -11,27 +11,25 @@ namespace TwoBySixAntennaSwitch
     public class Program
     {
 
-        private const int MAX_ANTENNA_NAME_LENGTH = 11;
-        private const int MAX_ANTENNA_MASK_LENGTH = 6;
+        const int MAX_ANTENNA_NAME_LENGTH = 11;
+        const int MAX_ANTENNA_MASK_LENGTH = 6;
 
-        private static DfRobotLcdShield _lcdshield;
-        private static Antenna[] _antennas;
-        private static Radio[] _radios;
+        static DfRobotLcdShield _lcdshield;
+        static Antenna[] _antennas;
+        static Radio[] _radios;
 
-        private static readonly OutputPort Led1 = new OutputPort(Pins.ONBOARD_LED, false);
+        static readonly OutputPort Led1 = new OutputPort(Pins.ONBOARD_LED, false);
 
-        static readonly I2CBus _commonI2CBus = new I2CBus();
-        // Assume A0 thru A2 specify address of zero, and we want 100kHz.
-        static readonly Eeprom.Eeprom _eeprom = new Eeprom.Eeprom(Eeprom.Eeprom.IC._24LC256, _commonI2CBus, 0, 100) { BigEndian = true };
-
+        static readonly I2CBus CommonI2CBus = new I2CBus();
+        static readonly Eeprom.Eeprom Eeprom = new Eeprom.Eeprom(TwoBySixAntennaSwitch.Eeprom.Eeprom.IC._24LC256, CommonI2CBus, 0, 100) { BigEndian = true };
 
         private static bool _showWelcomeMessage = true;
+        private static bool _showMainMenu = true;
 
         private static SerialUserInterface _serialUI = new SerialUserInterface();
 
         private const string Divider = "-------------------------------------------------------------\r\n";
 
-        private static bool _showMainMenu = true;
 
         public static void Main()
         {
@@ -84,12 +82,25 @@ namespace TwoBySixAntennaSwitch
                 var address = (i + 1) * 100; // Starting address.
                 _antennas[i] = new Antenna
                 {
-                    Name = _eeprom.ReadString((ushort)address, MAX_ANTENNA_NAME_LENGTH),
-                    BandMask = new BandMask(_eeprom.ReadString((ushort)(address + MAX_ANTENNA_NAME_LENGTH + 1), MAX_ANTENNA_MASK_LENGTH))
+                    Name = Eeprom.ReadString(address, MAX_ANTENNA_NAME_LENGTH),
+                    BandMask = new BandMask(Eeprom.ReadString((address + MAX_ANTENNA_NAME_LENGTH + 1), MAX_ANTENNA_MASK_LENGTH))
                 };
             }
 
-            //TODO: All the other config needs reading.
+            // Loop through the two radios and load their config.
+            for (var i = 0; i < 2; i++)
+            {
+                var address = (i + 1) * 10;
+                _radios[i].BandDecodingMethod = (BandDecodingMethod)Eeprom.ReadInt16(address);
+                _radios[i].BandPassFilterType = (BandPassFilterType)Eeprom.ReadInt16(address + 1);
+
+                // Read the BandDecodingMethod in the eeprom.
+                Eeprom.WriteInt16(address, (int)_radios[i].BandDecodingMethod);
+
+                // Read the BandPassFilterType in the eeprom.
+                Eeprom.WriteInt16((address + 1), (int)_radios[i].BandPassFilterType);
+
+            }
         }
 
         /// <summary>
@@ -100,8 +111,8 @@ namespace TwoBySixAntennaSwitch
             // We need to check if the eeprom has been programmed before.
             // When it is programmed we write 255 to address zero of the eeprom.
             // If we read byte zero and don't get 255 then we should factory reset.
-            
-            var b = _eeprom.ReadByte(0);
+
+            var b = Eeprom.ReadByte(0);
             if (b != 255)
             {
                 FactoryReset();
@@ -231,22 +242,34 @@ namespace TwoBySixAntennaSwitch
         {
 
             _antennas = new Antenna[6];
-            for (int i = 0; i < 6; i++)
+            for (var i = 0; i < _antennas.Length; i++)
             {
                 _antennas[i] = new Antenna { Name = "ANTENNA " + (i + 1), BandMask = new BandMask("000000") };
 
                 var address = (i + 1) * 100;
-                _eeprom.WriteString((ushort)(address), _antennas[i].Name);
-                _eeprom.WriteString((ushort)(address + MAX_ANTENNA_NAME_LENGTH + 1), _antennas[i].BandMask.ToString());
+                Eeprom.WriteString((address), _antennas[i].Name);
+                Eeprom.WriteString((address + MAX_ANTENNA_NAME_LENGTH + 1), _antennas[i].BandMask.ToString());
             }
 
             _radios = new[]
             {
-                new Radio(),
-                new Radio()
+                new Radio { BandDecodingMethod = BandDecodingMethod.YaesuBcd, BandPassFilterType = BandPassFilterType.None},
+                new Radio { BandDecodingMethod = BandDecodingMethod.YaesuBcd, BandPassFilterType = BandPassFilterType.None},
             };
 
-            _eeprom.WriteByte(0, 255);
+            for (var i = 0; i < _radios.Length; i++)
+            {
+                var address = (i + 1) * 10;
+
+                // Store the BandDecodingMethod in the eeprom.
+                Eeprom.WriteInt16(address, (int)_radios[i].BandDecodingMethod);
+
+                // Store the BandPassFilterType in the eeprom.
+                Eeprom.WriteInt16(address + 1, (int)_radios[i].BandPassFilterType);
+            }
+
+            // Write 255 to address zero on the eeprom to confirm it has been configured.
+            Eeprom.WriteByte(0, 255);
 
         }
 
@@ -332,7 +355,7 @@ namespace TwoBySixAntennaSwitch
                             name = name.Substring(0, MAX_ANTENNA_NAME_LENGTH);
                         }
                         _antennas[antenna - 1].Name = name;
-                        _eeprom.WriteString((ushort)(antenna * 100), name);
+                        Eeprom.WriteString(antenna * 100, name);
                         _serialUI.DisplayLine("\r\nName changed to : " + _antennas[antenna - 1].Name + "\r\n\r\n");
                     }
                     else
@@ -380,6 +403,10 @@ namespace TwoBySixAntennaSwitch
 
                     radio = inputItem.Context - 10;
                     _radios[radio - 1].BandDecodingMethod = (BandDecodingMethod)Convert.ToInt16(_serialUI.Store["band_decoder"].ToString());
+
+                    var address = radio * 10;
+                    Eeprom.WriteInt16(address, (int)_radios[radio - 1].BandDecodingMethod);
+
                     _serialUI.DisplayLine("\r\nBand Decoder Type changed to : " + Utilities.BandDecodingMethodToString(_radios[radio - 1].BandDecodingMethod) + "\r\n\r\n");
 
                     _serialUI.Stop();
@@ -421,6 +448,10 @@ namespace TwoBySixAntennaSwitch
 
                     radio = inputItem.Context - 10;
                     _radios[radio - 1].BandPassFilterType = (BandPassFilterType)Convert.ToInt16(_serialUI.Store["bpf"].ToString());
+
+                    var address = (radio * 10) + 1;
+                    Eeprom.WriteInt16(address, (int)_radios[radio - 1].BandPassFilterType);
+
                     _serialUI.DisplayLine("\r\nBPF output changed to : " + Utilities.BandPassFilterTypeToString(_radios[radio - 1].BandPassFilterType) + "\r\n\r\n");
 
                     _serialUI.Stop();
@@ -444,7 +475,7 @@ namespace TwoBySixAntennaSwitch
         private static void ConfigureAntennaMask(SerialInputItem inputItem)
         {
             _serialUI.Stop();
-            int antenna = 0;
+            int antenna;
 
             switch (inputItem.Context)
             {
@@ -477,7 +508,7 @@ namespace TwoBySixAntennaSwitch
                     if (_serialUI.Store["mask"].ToString() != "")
                     {
                         _antennas[antenna - 1].BandMask = new BandMask(_serialUI.Store["mask"].ToString());
-                        _eeprom.WriteString((ushort)((antenna * 100) + MAX_ANTENNA_NAME_LENGTH + 1), _antennas[antenna - 1].BandMask.ToString());
+                        Eeprom.WriteString(((antenna * 100) + MAX_ANTENNA_NAME_LENGTH + 1), _antennas[antenna - 1].BandMask.ToString());
                         _serialUI.DisplayLine("\r\nMask changed to : " + _antennas[antenna - 1].BandMask.ToString() + "\r\n\r\n");
                     }
                     else
@@ -497,7 +528,6 @@ namespace TwoBySixAntennaSwitch
 
         static void UpdateDisplay()
         {
-
             _lcdshield.WriteLine(0, "Radio A : " + Utilities.RadioStateToString(_radios[0].RadioState));
             _lcdshield.WriteLine(1, Utilities.RadioBandToString(_radios[0].CurrentBand).PadLeft(4) + " " + GetCountOfSuitableAntennas(_radios[0].CurrentBand) + " " + _antennas[_radios[0].CurrentAntenna].Name.PadRight(MAX_ANTENNA_NAME_LENGTH + 1) + (_radios[0].CurrentAntenna + 1));
             _lcdshield.WriteLine(2, "Radio B : " + Utilities.RadioStateToString(_radios[1].RadioState));
@@ -509,8 +539,8 @@ namespace TwoBySixAntennaSwitch
             _lcdshield.Clear();
             _lcdshield.WriteLine(0, "M1DST 2 x 6", TextAlign.Centre);
             _lcdshield.WriteLine(1, "ANTENNA SWITCH", TextAlign.Centre);
-            _lcdshield.WriteLine(2, "Radio A : Elecraft");
-            _lcdshield.WriteLine(3, "Radio B : Yaesu BCD");
+            _lcdshield.WriteLine(2, "Radio A: " + Utilities.BandDecodingMethodToString(_radios[0].BandDecodingMethod));
+            _lcdshield.WriteLine(3, "Radio B: " + Utilities.BandDecodingMethodToString(_radios[1].BandDecodingMethod));
             Thread.Sleep(2000);
             _lcdshield.Clear();
         }
