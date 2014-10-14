@@ -24,7 +24,7 @@ namespace TwoBySixAntennaSwitch
                 case BandDecodingMethod.Civ:
                     return "Icom (CI-V)";
                 case BandDecodingMethod.Kenwood:
-                    return "Kenwood (CAT)";
+                    return "Kenwood";
 
             }
 
