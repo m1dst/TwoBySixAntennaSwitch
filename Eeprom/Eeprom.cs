@@ -195,6 +195,30 @@ namespace TwoBySixAntennaSwitch.Eeprom
             return WriteBytes(writeAddress, writeBuffer);
         }
 
+        #region Overloads
+
+        public int ReadInt16(int readAddress)
+        {
+            return ReadInt16((ushort)readAddress);
+        }
+
+        public int WriteInt16(int writeAddress, int value)
+        {
+            return WriteInt16((ushort)writeAddress, value);
+        }
+
+        public string ReadString(int readAddress, uint length)
+        {
+            return ReadString((ushort)readAddress, length);
+        }
+
+        public int WriteString(int writeAddress, string value)
+        {
+            return WriteString((ushort)writeAddress, value);
+        }
+
+
+        #endregion
 
     }
 }
