@@ -23,6 +23,12 @@ namespace TwoBySixAntennaSwitch
         static readonly I2CBus CommonI2CBus = new I2CBus();
         static readonly Eeprom.Eeprom Eeprom = new Eeprom.Eeprom(TwoBySixAntennaSwitch.Eeprom.Eeprom.IC._24LC256, CommonI2CBus, 0, 100) { BigEndian = true };
 
+        private static InputPort RadioA_BCD_A;
+        private static InputPort RadioA_BCD_B;
+        private static InputPort RadioA_BCD_C;
+        private static InputPort RadioA_BCD_D;
+
+
         private static bool _showWelcomeMessage = true;
         private static bool _showMainMenu = true;
 
@@ -31,9 +37,23 @@ namespace TwoBySixAntennaSwitch
         private const string Divider = "-------------------------------------------------------------\r\n";
 
 
+
         public static void Main()
         {
             _lcdshield = new DfRobotLcdShield(20, 4);
+            try
+            {
+                RadioA_BCD_A = new InputPort(Pins.GPIO_PIN_D10, false, Port.ResistorMode.PullUp);
+                RadioA_BCD_B = new InputPort(Pins.GPIO_PIN_D11, false, Port.ResistorMode.PullUp);
+                RadioA_BCD_C = new InputPort(Pins.GPIO_PIN_D12, false, Port.ResistorMode.PullUp);
+                RadioA_BCD_D = new InputPort(Pins.GPIO_PIN_D13, false, Port.ResistorMode.PullUp);
+
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+
             _antennas = new Antenna[6];
 
             _radios = new Radio[2]
@@ -66,12 +86,23 @@ namespace TwoBySixAntennaSwitch
                     MainMenu(null);
                 }
 
+                CheckRadioABand();
+
                 InhibitRadiosIfRequired();
                 UpdateDisplay();
                 Thread.Sleep(200);
             }
             while (true);
 
+        }
+
+        private static void CheckRadioABand()
+        {
+            string bcd = !RadioA_BCD_A.Read() ? "1" : "0";
+            bcd += !RadioA_BCD_B.Read() ? "1" : "0";
+            bcd += !RadioA_BCD_C.Read() ? "1" : "0";
+            bcd += !RadioA_BCD_D.Read() ? "1" : "0";
+            _radios[0].CurrentBand = Utilities.BcdStringToBand(bcd);
         }
 
         private static void ReadConfigurationFromEeprom()
