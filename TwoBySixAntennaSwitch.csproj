@@ -57,6 +57,11 @@
     <Compile Include="Program.cs" />
     <Compile Include="Lcd\TextAlign.cs" />
     <Compile Include="SerialUserInterface.cs" />
+    <Compile Include="ShiftRegister\Ic74hc595.cs" />
+    <Compile Include="ShiftRegister\IGPOPort.cs" />
+    <Compile Include="ShiftRegister\IntegratedGPO.cs" />
+    <Compile Include="ShiftRegister\IParallelOut.cs" />
+    <Compile Include="ShiftRegister\MultiSPI.cs" />
     <Compile Include="StringBuilder.cs" />
     <Compile Include="StringExtension.cs" />
     <Compile Include="StringUtility.cs" />

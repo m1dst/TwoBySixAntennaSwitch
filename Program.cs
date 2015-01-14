@@ -5,6 +5,7 @@ using Microsoft.SPOT;
 using Microsoft.SPOT.Hardware;
 using SecretLabs.NETMF.Hardware.Netduino;
 using TwoBySixAntennaSwitch.Lcd;
+using TwoBySixAntennaSwitch.ShiftRegister;
 
 namespace TwoBySixAntennaSwitch
 {
@@ -19,6 +20,7 @@ namespace TwoBySixAntennaSwitch
         static Radio[] _radios;
 
         static readonly OutputPort Led1 = new OutputPort(Pins.ONBOARD_LED, false);
+        private static readonly Ic74hc595 IcChain = new Ic74hc595(SPI_Devices.SPI1, Pins.GPIO_PIN_D9, 2);
 
         static readonly I2CBus CommonI2CBus = new I2CBus();
         static readonly Eeprom.Eeprom Eeprom = new Eeprom.Eeprom(TwoBySixAntennaSwitch.Eeprom.Eeprom.IC._24LC256, CommonI2CBus, 0, 100) { BigEndian = true };
@@ -65,7 +67,7 @@ namespace TwoBySixAntennaSwitch
             _radios[1].CurrentBand = RadioBand.B10;
             _radios[1].RadioState = RadioState.Tx;
             _radios[0].CurrentAntenna = 0;
-            _radios[1].CurrentAntenna = 1;
+            _radios[1].CurrentAntenna = 5;
 
             CheckIfWeNeedToFactoryResetTheEeprom();
             ReadConfigurationFromEeprom();
