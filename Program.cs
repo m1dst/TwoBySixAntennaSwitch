@@ -12,6 +12,58 @@ namespace TwoBySixAntennaSwitch
     public class Program
     {
 
+        /*
+         * NETDUINO PORTS
+         * ===============================
+         * SCL: EEPROM
+         * SDA: EEPROM
+         * D13: SH_CP (4 x 74HC595, 2 x IC74HC165) (clock)
+         * D12: (2 x IC74HC165) (data)
+         * D11: DS (4 x 74HC595) (data in)
+         * D10: (2 x IC74HC165) (latch)
+         *  D9: ST_CP (4 x 74HC595) (latch)
+         *  D8:
+         *  D7: TX3 (Configuration) Bluetooth?
+         *  D6: TX3 (Configuration) Bluetooth?
+         *  D5:
+         *  D4:
+         *  D3: TX2 (RADIO B)
+         *  D2: RX2 (RADIO B)
+         *  D1: TX1 (RADIO A)
+         *  D0: RX1 (RADIO A)
+         *  A5:
+         *  A4:
+         *  A3: RADIO A (Icom voltage in)
+         *  A2: RADIO B (Icom voltage in)
+         *  A1:
+         *  A0:
+         * ===============================
+
+         * 74HC595 Configuration
+         * ========================================================================================================
+         * 0: RADIO A (ANT1)         8: RADIO B (ANT1)        16: RADIO A (BPF/BCD A)     24: RADIO A (BPF/BCD A)
+         * 1: RADIO A (ANT2)         9: RADIO B (ANT2)        17: RADIO A (BPF/BCD B)     25: RADIO A (BPF/BCD B)
+         * 2: RADIO A (ANT3)        10: RADIO B (ANT3)        18: RADIO A (BPF/BCD C)     26: RADIO A (BPF/BCD C)
+         * 3: RADIO A (ANT4)        11: RADIO B (ANT4)        19: RADIO A (BPF/BCD D)     27: RADIO A (BPF/BCD D)
+         * 4: RADIO A (ANT5)        12: RADIO B (ANT5)        20: RADIO A (BPF)           28: RADIO A (BPF)
+         * 5: RADIO A (ANT6)        13: RADIO B (ANT6)        21: RADIO A (BPF)           29: RADIO A (BPF)
+         * 6: RADIO A (TXInhibit)   14: RADIO A (TXInhibit)   22:                         30:
+         * 7:                       15:                       23:                         31:
+
+         ** IC74HC165 Configuration
+         * ====================================================
+         * 0: RADIO A (BCD A)             8: RADIO B (BCD A)
+         * 1: RADIO A (BCD B)             9: RADIO B (BCD B)
+         * 2: RADIO A (BCD C)            10: RADIO B (BCD C)
+         * 3: RADIO A (BCD D)            11: RADIO B (BCD D)
+         * 4: RADIO A (ANT SELECT)       12: RADIO A (ANT SELECT)
+         * 5:                            13:
+         * 6:                            14:
+         * 7:                            15:
+         *
+         * 1 x 595 for LCD circuit.
+         */
+
         const int MAX_ANTENNA_NAME_LENGTH = 11;
         const int MAX_ANTENNA_MASK_LENGTH = 6;
 
