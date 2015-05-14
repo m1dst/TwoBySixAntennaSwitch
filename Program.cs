@@ -25,8 +25,8 @@ namespace TwoBySixAntennaSwitch
          *  D8:
          *  D7: TX3 (Configuration) Bluetooth?
          *  D6: TX3 (Configuration) Bluetooth?
-         *  D5:
-         *  D4:
+         *  D5: 
+         *  D4: 
          *  D3: TX2 (RADIO B)
          *  D2: RX2 (RADIO B)
          *  D1: TX1 (RADIO A)
@@ -36,46 +36,79 @@ namespace TwoBySixAntennaSwitch
          *  A3: RADIO A (Icom voltage in)
          *  A2: RADIO B (Icom voltage in)
          *  A1:
-         *  A0:
+         *  A0: BUTTON MATRIX (5 BUTTONS)
          * ===============================
 
          * 74HC595 Configuration
          * ========================================================================================================
-         * 0: RADIO A (ANT1)         8: RADIO B (ANT1)        16: RADIO A (BPF/BCD A)     24: RADIO A (BPF/BCD A)
-         * 1: RADIO A (ANT2)         9: RADIO B (ANT2)        17: RADIO A (BPF/BCD B)     25: RADIO A (BPF/BCD B)
-         * 2: RADIO A (ANT3)        10: RADIO B (ANT3)        18: RADIO A (BPF/BCD C)     26: RADIO A (BPF/BCD C)
-         * 3: RADIO A (ANT4)        11: RADIO B (ANT4)        19: RADIO A (BPF/BCD D)     27: RADIO A (BPF/BCD D)
-         * 4: RADIO A (ANT5)        12: RADIO B (ANT5)        20: RADIO A (BPF)           28: RADIO A (BPF)
-         * 5: RADIO A (ANT6)        13: RADIO B (ANT6)        21: RADIO A (BPF)           29: RADIO A (BPF)
-         * 6: RADIO A (TXInhibit)   14: RADIO A (TXInhibit)   22:                         30:
+         * 0: RADIO A (ANT1)         8: RADIO B (ANT1)        16: RADIO A (BPF1/BCD A)     24: RADIO A (BPF1/BCD A)
+         * 1: RADIO A (ANT2)         9: RADIO B (ANT2)        17: RADIO A (BPF2/BCD B)     25: RADIO A (BPF2/BCD B)
+         * 2: RADIO A (ANT3)        10: RADIO B (ANT3)        18: RADIO A (BPF3/BCD C)     26: RADIO A (BPF3/BCD C)
+         * 3: RADIO A (ANT4)        11: RADIO B (ANT4)        19: RADIO A (BPF4/BCD D)     27: RADIO A (BPF4/BCD D)
+         * 4: RADIO A (ANT5)        12: RADIO B (ANT5)        20: RADIO A (BPF5)           28: RADIO A (BPF5)
+         * 5: RADIO A (ANT6)        13: RADIO B (ANT6)        21: RADIO A (BPF6)           29: RADIO A (BPF6)
+         * 6: RADIO A (TXInhibit)   14: RADIO B (TXInhibit)   22:                         30:
          * 7:                       15:                       23:                         31:
 
          ** IC74HC165 Configuration
-         * ====================================================
-         * 0: RADIO A (BCD A)             8: RADIO B (BCD A)
-         * 1: RADIO A (BCD B)             9: RADIO B (BCD B)
-         * 2: RADIO A (BCD C)            10: RADIO B (BCD C)
-         * 3: RADIO A (BCD D)            11: RADIO B (BCD D)
-         * 4: RADIO A (ANT SELECT)       12: RADIO A (ANT SELECT)
-         * 5:                            13:
-         * 6:                            14:
-         * 7:                            15:
-         *
-         * 1 x 595 for LCD circuit.
+         * ==========================
+         * 0: RADIO A (BCD A)
+         * 1: RADIO A (BCD B)
+         * 2: RADIO A (BCD C)
+         * 3: RADIO A (BCD D)
+         * 4: RADIO B (BCD A)
+         * 5: RADIO B (BCD B)
+         * 6: RADIO B (BCD C)
+         * 7: RADIO B (BCD D)
          */
 
         const int MAX_ANTENNA_NAME_LENGTH = 11;
         const int MAX_ANTENNA_MASK_LENGTH = 6;
 
-        static DfRobotLcdShield _lcdshield;
+        private const int PIN_RADIOA_ANT1 = 0;
+        private const int PIN_RADIOA_ANT2 = 1;
+        private const int PIN_RADIOA_ANT3 = 2;
+        private const int PIN_RADIOA_ANT4 = 3;
+        private const int PIN_RADIOA_ANT5 = 4;
+        private const int PIN_RADIOA_ANT6 = 5;
+        private const int PIN_RADIOA_TXINHIBIT = 6;
+        private const int PIN_SPARE_7 = 7;
+        private const int PIN_RADIOB_ANT1 = 8;
+        private const int PIN_RADIOB_ANT2 = 9;
+        private const int PIN_RADIOB_ANT3 = 10;
+        private const int PIN_RADIOB_ANT4 = 11;
+        private const int PIN_RADIOB_ANT5 = 12;
+        private const int PIN_RADIOB_ANT6 = 13;
+        private const int PIN_RADIOB_TXINHIBIT = 14;
+        private const int PIN_SPARE_15 = 15;
+        private const int PIN_RADIOA_BPF1 = 16;
+        private const int PIN_RADIOA_BPF2 = 17;
+        private const int PIN_RADIOA_BPF3 = 18;
+        private const int PIN_RADIOA_BPF4 = 19;
+        private const int PIN_RADIOA_BPF5 = 20;
+        private const int PIN_RADIOA_BPF6 = 21;
+        private const int PIN_SPARE_22 = 22;
+        private const int PIN_SPARE_23 = 23;
+        private const int PIN_RADIOB_BPF1 = 24;
+        private const int PIN_RADIOB_BPF2 = 25;
+        private const int PIN_RADIOB_BPF3 = 26;
+        private const int PIN_RADIOB_BPF4 = 27;
+        private const int PIN_RADIOB_BPF5 = 28;
+        private const int PIN_RADIOB_BPF6 = 29;
+        private const int PIN_SPARE_30 = 30;
+        private const int PIN_SPARE_31 = 31;
+
+        static Lcd.Lcd _lcd;
         static Antenna[] _antennas;
         static Radio[] _radios;
 
         static readonly OutputPort Led1 = new OutputPort(Pins.ONBOARD_LED, false);
         private static readonly Ic74hc595 IcChain = new Ic74hc595(SPI_Devices.SPI1, Pins.GPIO_PIN_D9, 2);
 
-        static readonly I2CBus CommonI2CBus = new I2CBus();
-        static readonly Eeprom.Eeprom Eeprom = new Eeprom.Eeprom(TwoBySixAntennaSwitch.Eeprom.Eeprom.IC._24LC256, CommonI2CBus, 0, 100) { BigEndian = true };
+        //static readonly I2CBus CommonI2CBus = new I2CBus();
+        //static readonly Eeprom.Eeprom Eeprom = new Eeprom.Eeprom(TwoBySixAntennaSwitch.Eeprom.Eeprom.IC._24LC256, CommonI2CBus, 0, 100) { BigEndian = true };
+        static readonly I2CBus CommonI2CBus = null;
+        static readonly Eeprom.Eeprom Eeprom = null;
 
         private static InputPort RadioA_BCD_A;
         private static InputPort RadioA_BCD_B;
@@ -94,19 +127,38 @@ namespace TwoBySixAntennaSwitch
 
         public static void Main()
         {
-            _lcdshield = new DfRobotLcdShield(20, 4);
-            try
-            {
-                RadioA_BCD_A = new InputPort(Pins.GPIO_PIN_D10, false, Port.ResistorMode.PullUp);
-                RadioA_BCD_B = new InputPort(Pins.GPIO_PIN_D11, false, Port.ResistorMode.PullUp);
-                RadioA_BCD_C = new InputPort(Pins.GPIO_PIN_D12, false, Port.ResistorMode.PullUp);
-                RadioA_BCD_D = new InputPort(Pins.GPIO_PIN_D13, false, Port.ResistorMode.PullUp);
 
-            }
-            catch (Exception ex)
+            for (var counter = (IcChain.Pins.Length / 2) - 1; counter >= 0; --counter)
             {
-                throw;
+                IcChain.Pins[counter].Write(true);
+                Thread.Sleep(25);
+                IcChain.Pins[counter].Write(false);
             }
+            for (var counter = IcChain.Pins.Length - 1; counter >= IcChain.Pins.Length / 2; --counter)
+            {
+                IcChain.Pins[counter].Write(true);
+                Thread.Sleep(25);
+                IcChain.Pins[counter].Write(false);
+            }
+            for (var counter = IcChain.Pins.Length / 2; counter <= IcChain.Pins.Length - 1; ++counter)
+            {
+                IcChain.Pins[counter].Write(true);
+                Thread.Sleep(25);
+                IcChain.Pins[counter].Write(false);
+            }
+            for (var counter = 0; counter <= (IcChain.Pins.Length / 2) - 1; ++counter)
+            {
+                IcChain.Pins[counter].Write(true);
+                Thread.Sleep(25);
+                IcChain.Pins[counter].Write(false);
+            }
+
+            _lcd = new Lcd.Lcd(0x27, 20, 4);
+
+            RadioA_BCD_A = new InputPort(Pins.GPIO_PIN_D5, false, Port.ResistorMode.PullUp);
+            RadioA_BCD_B = new InputPort(Pins.GPIO_PIN_D6, false, Port.ResistorMode.PullUp);
+            RadioA_BCD_C = new InputPort(Pins.GPIO_PIN_D7, false, Port.ResistorMode.PullUp);
+            RadioA_BCD_D = new InputPort(Pins.GPIO_PIN_D8, false, Port.ResistorMode.PullUp);
 
             _antennas = new Antenna[6];
 
@@ -116,14 +168,18 @@ namespace TwoBySixAntennaSwitch
                 new Radio()
             };
 
+            // I've commented out the write functions which will need to be uncommented when the eeprom is reconnected.
+            FactoryReset();
+
             _radios[1].CurrentBand = RadioBand.B10;
             _radios[1].RadioState = RadioState.Tx;
             _radios[0].CurrentAntenna = 0;
             _radios[1].CurrentAntenna = 5;
 
-            CheckIfWeNeedToFactoryResetTheEeprom();
-            ReadConfigurationFromEeprom();
+            //CheckIfWeNeedToFactoryResetTheEeprom();
+            //ReadConfigurationFromEeprom();
             DisplaySplash();
+            Random rnd = new Random();
 
             do
             {
@@ -140,11 +196,24 @@ namespace TwoBySixAntennaSwitch
                     MainMenu(null);
                 }
 
+                int counter = rnd.Next(15);
+                bool isOn = (DateTime.Now.Millisecond % 2 == 0);
+                IcChain.Pins[counter].Write(isOn);
+                counter = rnd.Next(15);
+                isOn = (DateTime.Now.Millisecond + 1 % 2 == 0);
+                IcChain.Pins[counter].Write(isOn);
+                counter = rnd.Next(15);
+                isOn = (DateTime.Now.Millisecond + 2 % 2 == 0);
+                IcChain.Pins[counter].Write(isOn);
+                counter = rnd.Next(15);
+                isOn = (DateTime.Now.Millisecond + 3 % 2 == 0);
+                IcChain.Pins[counter].Write(isOn);
+
                 CheckRadioABand();
 
                 InhibitRadiosIfRequired();
                 UpdateDisplay();
-                Thread.Sleep(200);
+                Thread.Sleep(50);
             }
             while (true);
 
@@ -207,7 +276,11 @@ namespace TwoBySixAntennaSwitch
         private static void InhibitRadiosIfRequired()
         {
             _radios[0].RadioState = GetCountOfSuitableAntennas(_radios[0].CurrentBand) == 0 ? RadioState.Inhibit : RadioState.Rx;
+            IcChain.Pins[PIN_RADIOA_TXINHIBIT].Write(_radios[0].RadioState == RadioState.Inhibit);
+
             _radios[1].RadioState = GetCountOfSuitableAntennas(_radios[1].CurrentBand) == 0 ? RadioState.Inhibit : RadioState.Rx;
+            IcChain.Pins[PIN_RADIOB_TXINHIBIT].Write(_radios[1].RadioState == RadioState.Inhibit);
+
         }
 
 
@@ -332,8 +405,8 @@ namespace TwoBySixAntennaSwitch
                 _antennas[i] = new Antenna { Name = "ANTENNA " + (i + 1), BandMask = new BandMask("000000") };
 
                 var address = (i + 1) * 100;
-                Eeprom.WriteString((address), _antennas[i].Name);
-                Eeprom.WriteString((address + MAX_ANTENNA_NAME_LENGTH + 1), _antennas[i].BandMask.ToString());
+                //Eeprom.WriteString((address), _antennas[i].Name);
+                //Eeprom.WriteString((address + MAX_ANTENNA_NAME_LENGTH + 1), _antennas[i].BandMask.ToString());
             }
 
             _radios = new[]
@@ -347,14 +420,14 @@ namespace TwoBySixAntennaSwitch
                 var address = (i + 1) * 10;
 
                 // Store the BandDecodingMethod in the eeprom.
-                Eeprom.WriteInt16(address, (int)_radios[i].BandDecodingMethod);
+                //Eeprom.WriteInt16(address, (int)_radios[i].BandDecodingMethod);
 
                 // Store the BandPassFilterType in the eeprom.
-                Eeprom.WriteInt16(address + 1, (int)_radios[i].BandPassFilterType);
+                //Eeprom.WriteInt16(address + 1, (int)_radios[i].BandPassFilterType);
             }
 
             // Write 255 to address zero on the eeprom to confirm it has been configured.
-            Eeprom.WriteByte(0, 255);
+            //Eeprom.WriteByte(0, 255);
 
         }
 
@@ -613,21 +686,22 @@ namespace TwoBySixAntennaSwitch
 
         static void UpdateDisplay()
         {
-            _lcdshield.WriteLine(0, "Radio A : " + Utilities.RadioStateToString(_radios[0].RadioState));
-            _lcdshield.WriteLine(1, Utilities.RadioBandToString(_radios[0].CurrentBand).PadLeft(4) + " " + GetCountOfSuitableAntennas(_radios[0].CurrentBand) + " " + _antennas[_radios[0].CurrentAntenna].Name.PadRight(MAX_ANTENNA_NAME_LENGTH + 1) + (_radios[0].CurrentAntenna + 1));
-            _lcdshield.WriteLine(2, "Radio B : " + Utilities.RadioStateToString(_radios[1].RadioState));
-            _lcdshield.WriteLine(3, Utilities.RadioBandToString(_radios[1].CurrentBand).PadLeft(4) + " " + GetCountOfSuitableAntennas(_radios[1].CurrentBand) + " " + _antennas[_radios[1].CurrentAntenna].Name.PadRight(MAX_ANTENNA_NAME_LENGTH + 1) + (_radios[1].CurrentAntenna + 1));
+            _lcd.WriteLine(0, "Radio A : " + Utilities.RadioStateToString(_radios[0].RadioState));
+            _lcd.WriteLine(1, Utilities.RadioBandToString(_radios[0].CurrentBand).PadLeft(4) + " " + GetCountOfSuitableAntennas(_radios[0].CurrentBand) + " " + _antennas[_radios[0].CurrentAntenna].Name.PadRight(MAX_ANTENNA_NAME_LENGTH + 1) + (_radios[0].CurrentAntenna + 1));
+            _lcd.WriteLine(2, "Radio B : " + Utilities.RadioStateToString(_radios[1].RadioState));
+            _lcd.WriteLine(3, Utilities.RadioBandToString(_radios[1].CurrentBand).PadLeft(4) + " " + GetCountOfSuitableAntennas(_radios[1].CurrentBand) + " " + _antennas[_radios[1].CurrentAntenna].Name.PadRight(MAX_ANTENNA_NAME_LENGTH + 1) + (_radios[1].CurrentAntenna + 1));
         }
 
         static void DisplaySplash()
         {
-            _lcdshield.Clear();
-            _lcdshield.WriteLine(0, "M1DST 2 x 6", TextAlign.Centre);
-            _lcdshield.WriteLine(1, "ANTENNA SWITCH", TextAlign.Centre);
-            _lcdshield.WriteLine(2, "Radio A: " + Utilities.BandDecodingMethodToString(_radios[0].BandDecodingMethod));
-            _lcdshield.WriteLine(3, "Radio B: " + Utilities.BandDecodingMethodToString(_radios[1].BandDecodingMethod));
+            _lcd.SetBacklight(true);
+            _lcd.Clear();
+            _lcd.WriteLine(0, "M1DST 2 x 6", TextAlign.Centre);
+            _lcd.WriteLine(1, "ANTENNA SWITCH", TextAlign.Centre);
+            _lcd.WriteLine(2, "Radio A: " + Utilities.BandDecodingMethodToString(_radios[0].BandDecodingMethod));
+            _lcd.WriteLine(3, "Radio B: " + Utilities.BandDecodingMethodToString(_radios[1].BandDecodingMethod));
             Thread.Sleep(2000);
-            _lcdshield.Clear();
+            _lcd.Clear();
         }
 
         static int ConvertYaesuBcdToBand(string input)

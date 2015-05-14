@@ -1,402 +1,678 @@
-﻿// Micro Liquid Crystal Library
-// http://microliquidcrystal.codeplex.com
-// Appache License Version 2.0 
-
-using System;
-using System.Text;
 using System.Threading;
+
+/*
+ * Adapted from LiquidCrystal_I2C.cpp from Arduino catalog
+ * Added: 
+ *  Text formatting and display methods
+ *  Reference to Stefan Thoolen (http://www.netmftoolbox.com/) MultiI2C
+ *      (Under separate license)
+ * 
+ * Copyright 2011-2012 Axel Granholm
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 namespace TwoBySixAntennaSwitch.Lcd
 {
+    /// <summary>
+    /// Class for managing the SainSmart 2004 LCD (SKU:20-011-913) with 
+    /// integratead I2C controler.
+    ///     Adapted from LiquidCrystal_I2C.cpp from Arduino catalog
+    /// </summary>
     public class Lcd
     {
-        private static readonly byte[] RowOffsets = new byte[] { 0x00, 0x40, 0x14, 0x54 };
+        private const int MAX_FREQ = 100;
+        private byte _Addr;
+        private byte _displayfunction;
+        private byte _displaycontrol;
+        private byte _displaymode;
+        private byte _numlines;
+        protected byte _cols;
+        protected byte _rows;
+        private byte _backlightval;
 
-        private readonly ILcdTransferProvider _provider;
-        private bool _showCursor;
-        private bool _blinkCursor;
-        private bool _visible = true;
-        private bool _backlight = true;
+        private object LCDLock;
 
-        private byte _numLines;
-        private byte _numColumns;
-        private byte _displayFunction;
+        private MultiI2C _I2C;
 
-        #region LCD Flags
-        // ReSharper disable InconsistentNaming
+        // When the display powers up, it is configured as follows:
+        //
+        // 1. Display clear
+        // 2. Function set: 
+        //    DL = 1; 8-bit interface data 
+        //    N = 0; 1-line display 
+        //    F = 0; 5x8 dot character font 
+        // 3. Display on/off control: 
+        //    D = 0; Display off 
+        //    C = 0; Cursor off 
+        //    B = 0; Blinking off 
+        // 4. Entry mode set: 
+        //    I/D = 1; Increment by 1
+        //    S = 0; No shift 
+        //
+        // Note, however, that resetting the Arduino doesn't reset the LCD, so we
+        // can't assume that its in that state when a sketch starts (and the
+        // LiquidCrystal constructor is called).
 
-        // commands
-        private const byte LCD_CLEARDISPLAY = 0x01;
-        private const byte LCD_RETURNHOME = 0x02;
-        private const byte LCD_ENTRYMODESET = 0x04;
-        private const byte LCD_DISPLAYCONTROL = 0x08;
-        private const byte LCD_CURSORSHIFT = 0x10;
-        private const byte LCD_FUNCTIONSET = 0x20;
-        private const byte LCD_SETCGRAMADDR = 0x40;
-        private const byte LCD_SETDDRAMADDR = 0x80;
+        #region "Constructors and Initializers"
 
-        // flags for display entry mode
-        private const byte LCD_ENTRYRIGHT = 0x00;
-        private const byte LCD_ENTRYLEFT = 0x02;
-        private const byte LCD_ENTRYSHIFTINCREMENT = 0x01;
-        private const byte LCD_ENTRYSHIFTDECREMENT = 0x00;
-
-        // flags for display on/off control
-        private const byte LCD_DISPLAYON = 0x04;
-        private const byte LCD_DISPLAYOFF = 0x00;
-        private const byte LCD_CURSORON = 0x02;
-        private const byte LCD_CURSOROFF = 0x00;
-        private const byte LCD_BLINKON = 0x01;
-        private const byte LCD_BLINKOFF = 0x00;
-
-        // flags for display/cursor shift
-        private const byte LCD_DISPLAYMOVE = 0x08;
-        private const byte LCD_CURSORMOVE = 0x00;
-        private const byte LCD_MOVERIGHT = 0x04;
-        private const byte LCD_MOVELEFT = 0x00;
-
-        // flags for function set
-        private const byte LCD_4BITMODE = 0x00;
-        private const byte LCD_8BITMODE = 0x10;
-        private const byte LCD_1LINE = 0x00;
-        private const byte LCD_2LINE = 0x08;
-        private const byte LCD_5x8DOTS = 0x00;
-        private const byte LCD_5x10DOTS = 0x04;
-
-        // ReSharper restore InconsistentNaming
-        #endregion
-
-        public Lcd(ILcdTransferProvider provider)
+        public Lcd(byte lcd_Addr, byte lcd_cols, byte lcd_rows)
         {
-            Encoding = Encoding.UTF8;
+            LCDLock = new object();
 
-            if (provider == null) throw new ArgumentNullException("provider");
-            _provider = provider;
-
-            if (_provider.FourBitMode)
-                _displayFunction = LCD_4BITMODE | LCD_1LINE | LCD_5x8DOTS;
-            else
-                _displayFunction = LCD_8BITMODE | LCD_1LINE | LCD_5x8DOTS;
-
-            Begin(16, 1);
+            _Addr = lcd_Addr;
+            _cols = lcd_cols;
+            _rows = lcd_rows;
+            _backlightval = DefineConstants.LCD_NOBACKLIGHT;
+            _I2C = new MultiI2C(lcd_Addr, MAX_FREQ);
+            Begin(_cols, _rows);
         }
 
-        protected ILcdTransferProvider Provider
+        protected void Reset()
         {
-            get { return _provider; }
+            lock (LCDLock)
+                Begin(_cols, _rows);
         }
 
         /// <summary>
-        /// Display or hide the LCD cursor: an underscore (line) at the position to which the next character will be written. 
+        /// Sends the initialization sequence for the device
         /// </summary>
-        public bool ShowCursor
+        /// <param name="cols">Number of columns</param>
+        /// <param name="lines">Number of rows</param>
+        /// <param name="dotsize">Optional cursor size</param>
+        protected void Begin(byte cols, byte lines, byte dotsize = DefineConstants.LCD_5x8DOTS)
         {
-            get { return _showCursor; }
-            set
-            {
-                if (_showCursor != value)
-                {
-                    _showCursor = value;
-                    UpdateDisplayControl();
-                }
-            }
-        }
+            _displayfunction = DefineConstants.LCD_4BITMODE | DefineConstants.LCD_1LINE | DefineConstants.LCD_5x8DOTS;
 
-        /// <summary>
-        /// Display or hide the blinking block cursor at the position to which the next character will be written.
-        /// </summary>
-        public bool BlinkCursor
-        {
-            get { return _blinkCursor; }
-            set
-            {
-                if (_blinkCursor != value)
-                {
-                    _blinkCursor = value;
-                    UpdateDisplayControl();
-                }
-            }
-        }
-
-        /// <summary>
-        /// Turns the LCD display on or off. This will restore the text (and cursor) that was on the display. 
-        /// </summary>
-        public bool Visible
-        {
-            get { return _visible; }
-            set
-            {
-                if (_visible != value)
-                {
-                    _visible = value;
-                    UpdateDisplayControl();
-                }
-            }
-        }
-
-
-        /// <summary>
-        /// Turns the LCD backlight on or off.
-        /// </summary>
-        public bool Backlight
-        {
-            get { return _backlight; }
-            set
-            {
-                if (_backlight != value)
-                {
-                    _backlight = value;
-                    UpdateDisplayControl();
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets the number of columns the LCD is configured for.
-        /// </summary>
-        public int Columns { get { return _numColumns; } }
-
-        /// <summary>
-        /// Gets the number of lines the LCD is configured for.
-        /// </summary>
-        public int Lines { get { return _numLines; } }
-
-
-        /// <summary>
-        /// Get or set the encoding used to map the string into bytes codes that are sent LCD. 
-        /// UTF8 is used by default.
-        /// </summary>
-        public Encoding Encoding { get; set; }
-
-        /// <summary>
-        /// Use this method to initialize the LCD. Specifies the dimensions (width and height) of the display. 
-        /// </summary>
-        /// <param name="columns">The number of columns that the display has.</param>
-        /// <param name="lines">The number of rows that the display has.</param>
-        public void Begin(byte columns, byte lines)
-        {
-            Begin(columns, lines, true, false);
-        }
-
-        public void Begin(byte columns, byte lines, bool leftToRight, bool dotSize)
-        {
             if (lines > 1)
             {
-                _displayFunction |= LCD_2LINE;
+                _displayfunction |= DefineConstants.LCD_2LINE;
             }
-            _numLines = lines;
-            _numColumns = columns;
+            _numlines = lines;
 
             // for some 1 line displays you can select a 10 pixel high font
-            if (dotSize && (lines == 1))
+            if ((dotsize != 0) && (lines == 1))
             {
-                _displayFunction |= LCD_5x10DOTS;
+                _displayfunction |= DefineConstants.LCD_5x10DOTS;
             }
 
-            Thread.Sleep(50);      // LCD controller needs some warm-up time
-            // rs, rw, and enable should be low by default
+            // SEE PAGE 45/46 FOR INITIALIZATION SPECIFICATION!
+            // according to datasheet, we need at least 40ms after power rises above 2.7V
+            // before sending commands. Arduino can turn on way befer 4.5V so we'll wait 50
+            //Thread.Sleep(50);
 
-            if (Provider.FourBitMode)
-            {
-                // this is according to the hitachi HD44780 datasheet
-                // figure 24, pg 46
+            // Now we pull both RS and R/W low to begin commands
+            ExpanderWrite(_backlightval); // reset expander and turn backlight off (Bit 8 =1)
+            Thread.Sleep(1000);
 
-                // we start in 8bit mode, try to set 4 bit mode
-                SendCommand(0x03);
-                Thread.Sleep(5);   // wait min 4.1ms
+            //put the LCD into 4 bit mode
+            // this is according to the hitachi HD44780 datasheet
+            // figure 24, pg 46
 
-                SendCommand(0x03);
-                Thread.Sleep(5);    // wait min 4.1ms
+            // we start in 8bit mode, try to set 4 bit mode
+            WriteFourBits(0x03 << 4);
+            Thread.Sleep(8); // wait min 4.1ms
 
-                // third go!
-                SendCommand(0x03);
-                Thread.Sleep(5);
+            // second try
+            WriteFourBits(0x03 << 4);
+            Thread.Sleep(8); // wait min 4.1ms
 
-                // finally, set to 4-bit interface
-                SendCommand(0x02);
-                Thread.Sleep(5);
-            }
-            else
-            {
-                // this is according to the hitachi HD44780 datasheet
-                // page 45 figure 23
+            // third go!
+            WriteFourBits(0x03 << 4);
+            Thread.Sleep(4);
 
-                // Send function set command sequence
-                SendCommand((byte)(LCD_FUNCTIONSET | _displayFunction));
-                Thread.Sleep(5); // wait more than 4.1ms
+            // finally, set to 4-bit interface
+            WriteFourBits(0x02 << 4);
 
-                // second try
-                SendCommand((byte)(LCD_FUNCTIONSET | _displayFunction));
-                Thread.Sleep(5);
-
-                // third go
-                SendCommand((byte)(LCD_FUNCTIONSET | _displayFunction));
-                Thread.Sleep(5);
-            }
-
-            // finally, set # lines, font size, etc.
-            SendCommand((byte)(LCD_FUNCTIONSET | _displayFunction));
+            // set # lines, font size, etc.
+            Command((byte)(DefineConstants.LCD_FUNCTIONSET | _displayfunction));
 
             // turn the display on with no cursor or blinking default
-            _visible = true;
-            _showCursor = false;
-            _blinkCursor = false;
-            _backlight = true;
-            UpdateDisplayControl();
+            _displaycontrol = DefineConstants.LCD_DISPLAYON | DefineConstants.LCD_CURSOROFF | DefineConstants.LCD_BLINKOFF;
+            Display();
 
             // clear it off
             Clear();
 
-            // set the entry mode
-            var displayMode = leftToRight ? LCD_ENTRYLEFT : LCD_ENTRYRIGHT;
-            displayMode |= LCD_ENTRYSHIFTDECREMENT;
-            SendCommand((byte)(LCD_ENTRYMODESET | displayMode));
-        }
+            // Initialize to default text direction (for roman languages)
+            _displaymode = DefineConstants.LCD_ENTRYLEFT | DefineConstants.LCD_ENTRYSHIFTDECREMENT;
 
+            // set the entry mode
+            Command((byte)(DefineConstants.LCD_ENTRYMODESET | _displaymode));
+
+            Home();
+        }
+        #endregion
+
+        #region "High Level commands"
         /// <summary>
-        /// Clears the LCD screen and positions the cursor in the upper-left corner.
+        /// clear display, set cursor position to zero
         /// </summary>
         public void Clear()
         {
-            SendCommand(LCD_CLEARDISPLAY);
-            Thread.Sleep(2); // this command takes a long time!
+            lock (LCDLock)
+            {
+                Command(DefineConstants.LCD_CLEARDISPLAY);
+                Thread.Sleep(2); // this command takes a long time!
+            }
         }
 
         /// <summary>
-        /// Positions the cursor in the upper-left of the LCD. 
-        /// That is, use that location in outputting subsequent text to the display. 
-        /// To also clear the display, use the <see cref="Clear"/> method instead. 
+        /// set cursor position to zero
         /// </summary>
-        public void Home()
+        protected void Home()
         {
-            SendCommand(LCD_RETURNHOME);
-            Thread.Sleep(2); // this command takes a long time!
+            lock (LCDLock)
+            {
+                Command(DefineConstants.LCD_RETURNHOME);
+                Thread.Sleep(2); // this command takes a long time!
+            }
         }
 
         /// <summary>
-        /// Position the LCD cursor; that is, set the location at which subsequent text written to the LCD will be displayed
+        /// Turn the display on/off (quickly)
         /// </summary>
-        /// <param name="column"></param>
-        /// <param name="row"></param>
-        public void SetCursorPosition(int column, int row)
+        protected void NoDisplay()
         {
-            if (row > _numLines)
-                row = _numLines - 1;
-
-            int address = column + RowOffsets[row];
-            SendCommand((byte)(LCD_SETDDRAMADDR | address));
+            lock (LCDLock)
+            {
+                byte display = DefineConstants.LCD_DISPLAYON;
+                _displaycontrol &= (byte)~display;
+                Command((byte)(DefineConstants.LCD_DISPLAYCONTROL | _displaycontrol));
+            }
         }
-
         /// <summary>
-        /// Scrolls the contents of the display (text and cursor) one space to the left. 
+        /// Turn display on
         /// </summary>
-        public void ScrollDisplayLeft()
+        protected void Display()
         {
-            //TODO: test
-            SendCommand(0x18 | 0x00);
+            lock (LCDLock)
+            {
+                _displaycontrol |= DefineConstants.LCD_DISPLAYON;
+                Command((byte)(DefineConstants.LCD_DISPLAYCONTROL | _displaycontrol));
+            }
         }
 
         /// <summary>
-        /// Scrolls the contents of the display (text and cursor) one space to the right. 
+        /// Turn off the blinking cursor
         /// </summary>
-        public void ScrollDisplayRight()
+        protected void NoBlink()
         {
-            //TODO: test
-            SendCommand(0x18 | 0x04);
+            lock (LCDLock)
+            {
+                byte blink = DefineConstants.LCD_BLINKON;
+                _displaycontrol &= (byte)~blink;
+                Command((byte)(DefineConstants.LCD_DISPLAYCONTROL | _displaycontrol));
+            }
         }
-
         /// <summary>
-        /// Moves cursor left or right.
+        /// Turn on the blinking cursor
         /// </summary>
-        /// <param name="right">true to move cursor right.</param>
-        public void MoveCursor(bool right)
+        protected void Blink()
         {
-            //TODO: verify this instruction
-            SendCommand((byte)(0x10 | ((right) ? 0x04 : 0x00)));
+            lock (LCDLock)
+            {
+                _displaycontrol |= DefineConstants.LCD_BLINKON;
+                Command((byte)(DefineConstants.LCD_DISPLAYCONTROL | _displaycontrol));
+            }
         }
 
         /// <summary>
-        /// Writes a text to the LCD.
+        ///Turns on the underline cursor
+        /// </summary>
+        protected void NoCursor()
+        {
+            lock (LCDLock)
+            {
+                byte cursor = DefineConstants.LCD_CURSORON;
+                _displaycontrol &= (byte)~cursor;
+                Command((byte)(DefineConstants.LCD_DISPLAYCONTROL | _displaycontrol));
+            }
+        }
+        /// <summary>
+        /// Turns off the underline cursor
+        /// </summary>
+        protected void Cursor()
+        {
+            lock (LCDLock)
+            {
+                _displaycontrol |= DefineConstants.LCD_CURSORON;
+                Command((byte)(DefineConstants.LCD_DISPLAYCONTROL | _displaycontrol));
+            }
+        }
+
+        /// <summary>
+        /// Scroll display left without changing the RAM
+        /// </summary>
+        protected void ScrollDisplayLeft()
+        {
+            lock (LCDLock)
+                Command(DefineConstants.LCD_CURSORSHIFT | DefineConstants.LCD_DISPLAYMOVE | DefineConstants.LCD_MOVELEFT);
+        }
+        /// <summary>
+        /// Scroll display right without changing the RAM
+        /// </summary>
+        protected void ScrollDisplayRight()
+        {
+            lock (LCDLock)
+                Command(DefineConstants.LCD_CURSORSHIFT | DefineConstants.LCD_DISPLAYMOVE | DefineConstants.LCD_MOVERIGHT);
+        }
+
+        /// <summary>
+        ///This is for text that flows Left to Right 
+        /// </summary>
+        protected void LeftToRight()
+        {
+            lock (LCDLock)
+            {
+                _displaymode |= DefineConstants.LCD_ENTRYLEFT;
+                Command((byte)(DefineConstants.LCD_ENTRYMODESET | _displaymode));
+            }
+        }
+
+        /// <summary>
+        ///This is for text that flows Right to Left 
+        /// </summary>
+        protected void RightToLeft()
+        {
+            lock (LCDLock)
+            {
+                byte entry = DefineConstants.LCD_ENTRYLEFT;
+                _displaymode &= (byte)~entry;
+                Command((byte)(DefineConstants.LCD_ENTRYMODESET | _displaymode));
+            }
+        }
+
+        /// <summary>
+        /// Turn off the (optional) backlight
+        /// </summary>
+        protected void NoBacklight()
+        {
+            lock (LCDLock)
+            {
+                _backlightval = DefineConstants.LCD_NOBACKLIGHT;
+                ExpanderWrite(0);
+            }
+        }
+
+        /// <summary>
+        /// Turn on the (optional) backlight
+        /// </summary>
+        protected void Backlight()
+        {
+            lock (LCDLock)
+            {
+                _backlightval = DefineConstants.LCD_BACKLIGHT;
+                ExpanderWrite(0);
+            }
+        }
+
+        /// <summary>
+        /// This will 'right justify' text from the cursor
+        /// </summary>
+        protected void AutoScroll()
+        {
+            lock (LCDLock)
+            {
+                _displaymode |= DefineConstants.LCD_ENTRYSHIFTINCREMENT;
+                Command((byte)(DefineConstants.LCD_ENTRYMODESET | _displaymode));
+            }
+        }
+
+        /// <summary>
+        /// This will 'left justify' text from the cursor
+        /// </summary>
+        protected void NoAutoScroll()
+        {
+            lock (LCDLock)
+            {
+                byte entry = DefineConstants.LCD_ENTRYSHIFTINCREMENT;
+                _displaymode &= (byte)~entry;
+                Command((byte)(DefineConstants.LCD_ENTRYMODESET | _displaymode));
+            }
+        }
+
+        #endregion
+
+        #region String commands
+
+        /// <summary>
+        /// Writes a string array to the device.  Truncates strings to the number of columns allowed, 
+        ///  or wraps if enough room.
+        /// </summary>
+        /// <param name="data">string array with each element mapped to a line on the LCD.  Will 
+        ///   truncate if too many are sent</param>
+        /// <param name="format">C = center each line</param>
+        private void Write(string[] data, char format = ' ')
+        {
+            int NumRows = data.Length;
+            if (NumRows > _rows) NumRows = _rows;
+            //base.clear();
+
+            //truncate the strings, and center if needed
+            lock (LCDLock)
+            {
+                for (int i = 0; i < NumRows; i++)
+                {
+                    if (data[i].Length > _cols) data[i] = data[i].Substring(0, _cols);
+                    if (data[i].Length != 0) Write(data[i], 0, (byte)i, format);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Takes in a string, and breaks it up into four strings suitable for the display
+        /// </summary>
+        /// <param name="value">String to be converted</param>
+        /// <returns>string array containing one element for each row on the display</returns>
+        public string[] MakeTextBlock(string value)
+        {
+            int LastSpace = 0;
+            string[] TextBlock = new string[_rows];
+            for (int i = 0; i < _rows; i++) TextBlock[i] = "";
+
+            for (int pass = 0; pass < _rows; pass++)
+            {
+                int SegLen = _cols;
+                if (value.Length < LastSpace + _cols) SegLen = value.Length - LastSpace;
+
+                int ThisSpace = 0;
+                string part = value.Substring(LastSpace, SegLen);
+
+                ThisSpace = part.Length;
+                if (part.Length >= _cols)
+                {
+                    for (int i = 0; i < part.Length; i++) if (part[i] == ' ') ThisSpace = i;
+                }
+
+                TextBlock[pass] = part.Substring(0, ThisSpace);
+                LastSpace += ThisSpace + 1;
+
+                if (LastSpace >= value.Length) break;
+            }
+
+            return TextBlock;
+        }
+
+        /// <summary>
+        /// Write the string at a specific location, with a specific formatting
+        /// </summary>
+        /// <param name="value">Value to display</param>
+        /// <param name="col">Starting column </param>
+        /// <param name="row">Row to display</param>
+        /// <param name="format">C = Centered on the row</param>
+        private void Write(string value, byte col, byte row, char format = 'c')
+        {
+            string NewString = "";
+
+            if ((format == 'c' || format == 'C') && value.Length < _cols && col == 0)
+            {
+                for (int space = 0; space < (_cols - value.Length) / 2; space++) NewString += " ";
+                NewString = NewString + value;
+            }
+            else NewString = value;
+
+            lock (LCDLock)
+            {
+                SetCursor(col, row);
+                Write(NewString);
+                //if (row == TEMPROW && NewString.Trim().Length != 0) LastTempLine = DateTime.Now;
+            }
+        }
+
+        /// <summary>
+        /// Send string to the current cursor position
+        /// If the string is longer than number of columns, the string will be broken
+        ///   up into parts and written across multiple lines.
+        /// </summary>
+        /// <param name="value">string value to display</param>
+        public void Write(string value)
+        {
+            if (value.Length > _cols)
+            {
+                Write(MakeTextBlock(value), 'c');
+            }
+            else
+            {
+                byte[] Buffer = Tools.Chars2Bytes(value.ToCharArray());
+                lock (LCDLock)
+                    Write(Buffer);
+            }
+        }
+
+        /// <summary>
+        /// Writes an entire line of text to the LCD.
+        /// </summary>
+        /// <param name="line">The line required to write at.  Starts at 1.</param>
+        /// <param name="text">The string to write.</param>
+        /// <param name="align">Alignment of the string. EG: Left</param>
+        public void WriteLine(byte line, string text, TextAlign align = TextAlign.Left)
+        {
+            if (line > _rows - 1) { line = (byte) (_rows - 1); }
+            SetCursor(0, line);
+            WriteLine(text, align);
+        }
+
+        /// <summary>
+        /// Writes an entire line of text to the LCD.
         /// </summary>
         /// <param name="text">The string to write.</param>
-        public void Write(string text)
+        /// <param name="align">Alignment of the string. EG: Left</param>
+        public void WriteLine(string text, TextAlign align = TextAlign.Left)
         {
-            byte[] buffer = Encoding.GetBytes(text);
-            Write(buffer, 0, buffer.Length);
+
+            if (text.Length > _cols)
+            {
+                // the string length was too long to fit on a line so trim it.
+                text = text.Substring(0, _cols);
+            }
+            else if (text.Length < _cols)
+            {
+                // the string length was too short to fit on a line so pad it.
+                var numberOfCharsToPad = _cols - text.Length;
+
+                for (int i = 0; i < numberOfCharsToPad; i++)
+                {
+                    switch (align)
+                    {
+                        case TextAlign.Left:
+                            text = text + " ";
+                            break;
+                        case TextAlign.Right:
+                            text = " " + text;
+                            break;
+                        case TextAlign.Centre:
+                            if (text.Length % 2 == 0)
+                            { text = " " + text; }
+                            else { text = text + " "; }
+                            break;
+                    }
+                }
+            }
+
+            // write the string
+            Write(text);
+
         }
 
+        #endregion
+
+        #region "Charaters and writing"
+
         /// <summary>
-        /// Writes a specified number of bytes to the LCD using data from a buffer.
+        /// Allows us to fill the first 8 CGRAM locations with custom characters
         /// </summary>
-        /// <param name="buffer">The byte array that contains data to write to display.</param>
-        /// <param name="offset">The zero-based byte offset in the buffer parameter at which to begin copying bytes to display.</param>
-        /// <param name="count">The number of bytes to write.</param>
-        public void Write(byte[] buffer, int offset, int count)
+        /// <param name="location"> 0-7 locations</param>
+        /// <param name="charmap"> byte[8] containg charater map</param>
+        protected void CreateChar(byte location, byte[] charmap)
         {
-            int len = offset + count;
-            for (int i = offset; i < len; i++)
+            //E.g., http://cdn.instructables.com/FLN/05VC/G68HDRBT/FLN05VCG68HDRBT.MEDIUM.jpg
+            //http://www.instructables.com/id/LED-Scolling-Dot-Matrix-Font-Graphics-Generator-/
+            lock (LCDLock)
             {
-                WriteByte(buffer[i]);
+                location &= 0x7; // we only have 8 locations 0-7
+                Command((byte)(DefineConstants.LCD_SETCGRAMADDR | (location << 3)));
+                for (int i = 0; i < 8; i++)
+                {
+                    Write(charmap[i]);
+                }
             }
         }
 
         /// <summary>
-        /// Sends one data byte to the display.
+        /// Sets the location of the cursor prior to senting characters
         /// </summary>
-        /// <param name="data">The data byte to send.</param>
-        public void WriteByte(byte data)
+        /// <param name="col"> 0 - MaxCols - 1</param>
+        /// <param name="row"> 0 - MaxRows - 1</param>
+        public void SetCursor(byte col, byte row)
         {
-            Provider.Send(data, true, _backlight);
-        }
-
-        /// <summary>
-        /// Sends HD44780 lcd interface command.
-        /// </summary>
-        /// <param name="data">The byte command to send.</param>
-        public void SendCommand(byte data)
-        {
-            Provider.Send(data, false, _backlight);
-        }
-
-        /// <summary>
-        /// Create a custom character (gylph) for use on the LCD.
-        /// </summary>
-        /// <remarks>
-        /// Up to eight characters of 5x8 pixels are supported (numbered 0 to 7). 
-        /// The appearance of each custom character is specified by an array of eight bytes, one for each row.
-        /// The five least significant bits of each byte determine the pixels in that row. 
-        /// To display a custom character on the screen, call WriteByte() and pass its number. 
-        /// </remarks>
-        /// <param name="location">Which character to create (0 to 7) </param>
-        /// <param name="charmap">The character's pixel data </param>
-        /// <param name="offset">Offset in the charmap where character data is found </param>
-        public void CreateChar(int location, byte[] charmap, int offset)
-        {
-            location &= 0x7; // we only have 8 locations 0-7
-            SendCommand((byte)(LCD_SETCGRAMADDR | (location << 3)));
-            for (int i = 0; i < 8; i++)
+            lock (LCDLock)
             {
-                WriteByte(charmap[offset + i]);
+                int[] row_offsets = { 0x00, 0x40, 0x14, 0x54 };
+                if (row > _numlines)
+                {
+                    row = (byte)(_numlines - 1); // we count rows starting w/0
+                }
+                Command((byte)(DefineConstants.LCD_SETDDRAMADDR | (col + row_offsets[row])));
             }
         }
 
-        public void CreateChar(int location, byte[] charmap)
+
+
+        public void Write(byte[] value)
         {
-            CreateChar(location, charmap, 0);
+            lock (LCDLock)
+            {
+                for (int position = 0; position < value.Length; position++)
+                    Write(value[position]);
+            }
+        }
+        public void Write(byte value)
+        {
+            lock (LCDLock)
+                Send(value, 0x01);
         }
 
+        #endregion
+
+        #region "Mid level commands"
+        /*********** mid level commands, for sending data/cmds */
+
+        private void Command(byte value)
+        {
+            Send(value, 0);
+        }
+
+        ////compatibility API function aliases
+        public void BlinkOn()
+        {
+            Blink();
+        }
+        public void BlinkOff()
+        {
+            NoBlink();
+        }
+        public void CursorOn()
+        {
+            Cursor();
+        }
+        public void CursorOff()
+        {
+            NoCursor();
+        }
+        public void SetBacklight(bool new_val)
+        {
+            if (new_val) Backlight(); // turn backlight on
+            else NoBacklight(); // turn backlight off
+        }
+        public void LoadCustomCharacter(byte char_num, byte[] charMap)
+        {
+            CreateChar(char_num, charMap);
+        }
+
+        #endregion
+
+        #region "Low Level commands"
         /// <summary>
-        /// Method is called when any of the display control properties are changed.
+        /// write either command or data to the devide
         /// </summary>
-        protected void UpdateDisplayControl()
+        /// <param name="value">byte to send</param>
+        /// <param name="mode">0 = command, 1 = data</param>
+        private void Send(byte value, byte mode)
         {
-            int command = LCD_DISPLAYCONTROL;
-            command |= (_visible) ? LCD_DISPLAYON : LCD_DISPLAYOFF;
-            command |= (_showCursor) ? LCD_CURSORON : LCD_CURSOROFF;
-            command |= (_blinkCursor) ? LCD_BLINKON : LCD_BLINKOFF;
+            byte highnib = (byte)(value & 0xf0);
+            byte lownib = (byte)((value << 4) & 0xf0);
 
-            //NOTE: backlight is updated with each command
-            SendCommand((byte)command);
+            WriteFourBits((byte)((highnib) | mode));
+            WriteFourBits((byte)((lownib) | mode));
         }
+        private void WriteFourBits(byte value)
+        {
+            ExpanderWrite(value);
+            PulseEnable(value);
+        }
+        /// <summary>
+        /// Lowest level command to send data to the I2C port
+        /// </summary>
+        /// <param name="_data"></param>
+        private void ExpanderWrite(byte _data)
+        {
+            int length = _I2C.Write(new byte[] { (byte)(_data | _backlightval) });
+            //if (length == 0)
+            //    throw new System.IO.IOException("No data written to I2C device");
+        }
+        private void PulseEnable(byte _data)
+        {
+            ExpanderWrite((byte)(_data | 0x04)); // En high
+            //Thread.Sleep(1); // enable pulse must be >450ns
+
+            ExpanderWrite((byte)(_data & ~0x04)); // En low
+            //Thread.Sleep(50); // commands need > 37us to settle
+        }
+        #endregion
+    }
+
+    internal static class DefineConstants
+    {
+        public const int LCD_CLEARDISPLAY = 0x01;
+        public const int LCD_RETURNHOME = 0x02;
+        public const int LCD_ENTRYMODESET = 0x04;
+        public const int LCD_DISPLAYCONTROL = 0x08;
+        public const int LCD_CURSORSHIFT = 0x10;
+        public const int LCD_FUNCTIONSET = 0x20;
+        public const int LCD_SETCGRAMADDR = 0x40;
+        public const int LCD_SETDDRAMADDR = 0x80;
+        public const int LCD_ENTRYRIGHT = 0x00;
+        public const int LCD_ENTRYLEFT = 0x02;
+        public const int LCD_ENTRYSHIFTINCREMENT = 0x01;
+        public const int LCD_ENTRYSHIFTDECREMENT = 0x00;
+        public const int LCD_DISPLAYON = 0x04;
+        public const int LCD_DISPLAYOFF = 0x00;
+        public const int LCD_CURSORON = 0x02;
+        public const int LCD_CURSOROFF = 0x00;
+        public const int LCD_BLINKON = 0x01;
+        public const int LCD_BLINKOFF = 0x00;
+        public const int LCD_DISPLAYMOVE = 0x08;
+        public const int LCD_CURSORMOVE = 0x00;
+        public const int LCD_MOVERIGHT = 0x04;
+        public const int LCD_MOVELEFT = 0x00;
+        public const int LCD_8BITMODE = 0x10;
+        public const int LCD_4BITMODE = 0x00;
+        public const int LCD_2LINE = 0x08;
+        public const int LCD_1LINE = 0x00;
+        public const int LCD_5x10DOTS = 0x04;
+        public const int LCD_5x8DOTS = 0x00;
+        public const int LCD_BACKLIGHT = 0x08;
+        public const int LCD_NOBACKLIGHT = 0x00;
     }
 }
